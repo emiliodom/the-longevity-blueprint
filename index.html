@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Longevity Blueprint</title>
+
+  <!-- Tailwind CSS (CDN) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: { colors: { slate: { 950: '#020617' } } } }
+    };
+  </script>
+
+  <!-- MathJax — BMR equation on page 3 -->
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$','$']] },
+      options: { skipHtmlTags: ['script','noscript','style','textarea','pre'] }
+    };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <!-- Google Translate -->
+  <script>
+    function googleTranslateElementInit() {
+      new google.translate.TranslateElement(
+        { pageLanguage:'en', includedLanguages:'en,es',
+          layout: google.translate.TranslateElement.InlineLayout.SIMPLE },
+        'google_translate_element'
+      );
+    }
+  </script>
+  <script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit" defer></script>
+
+  <!-- Vue 3 (CDN, Options API) -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+
+  <!-- App CSS -->
+  <link rel="stylesheet" href="src/css/style.css">
+</head>
+
+<body class="bg-slate-950 text-slate-200 min-h-screen antialiased">
+
+<div id="app" v-cloak>
+
+  <!-- ── Loading spinner ──────────────────────────────────────────────── -->
+  <div v-if="appState === 'loading'" class="flex items-center justify-center min-h-screen">
+    <div class="text-center">
+      <div class="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+      <p class="text-slate-400 text-sm">Connecting to server…</p>
+    </div>
+  </div>
+
+  <!-- ── Server error ──────────────────────────────────────────────────── -->
+  <div v-else-if="appState === 'error'" class="server-error">
+    <div class="text-5xl mb-4">🔌</div>
+    <h1 class="text-xl font-bold text-red-400 mb-2">Server Offline</h1>
+    <p class="text-slate-400 text-sm max-w-sm">
+      The Longevity Blueprint server is not responding.<br>
+      Run <code class="bg-slate-800 px-2 py-0.5 rounded text-sky-400">npm start</code> in the project directory, then refresh.
+    </p>
+  </div>
+
+  <!-- ── Auth (Login / Register) ─────────────────────────────────────────── -->
+  <div v-else-if="appState === 'auth'"
+       class="min-h-screen flex items-center justify-center p-4 py-10">
+    <div class="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden">
+
+      <!-- Login / Register tabs -->
+      <div class="flex">
+        <button @click="authMode='login'; authError=''"
+                :class="['auth-tab', authMode==='login' ? 'active' : '']">
+          Sign In
+        </button>
+        <button @click="authMode='register'; authError=''"
+                :class="['auth-tab', authMode==='register' ? 'active' : '']">
+          Create Account
+        </button>
+      </div>
+
+      <div class="p-8">
+
+        <!-- Header -->
+        <div class="text-center mb-6">
+          <div class="text-4xl mb-2">🧬</div>
+          <h1 class="text-xl font-bold text-white">
+            {{ authMode === 'login' ? 'Welcome back' : 'Create your account' }}
+          </h1>
+          <p class="text-slate-400 text-xs mt-1">
+            {{ authMode === 'login' ? 'Sign in to access your profiles' : 'Your data is private — stored locally on this machine' }}
+          </p>
+        </div>
+
+        <!-- Error banner -->
+        <div v-if="authError" class="mb-4 text-xs text-red-400 bg-red-950/40 border border-red-800 rounded-lg px-3 py-2">
+          {{ authError }}
+        </div>
+
+        <!-- Form -->
+        <div class="space-y-4">
+
+          <!-- Email -->
+          <div>
+            <label class="text-xs text-slate-400 mb-1 block font-medium">Email</label>
+            <input v-model="authForm.email" type="email" class="calc-input"
+                   placeholder="you@example.com"
+                   @keyup.enter="authMode==='login' ? loginUser() : registerUser()">
+          </div>
+
+          <!-- Password -->
+          <div>
+            <label class="text-xs text-slate-400 mb-1 block font-medium">Password</label>
+            <div class="relative">
+              <input v-model="authForm.password"
+                     :type="showPassword ? 'text' : 'password'"
+                     class="calc-input pr-10"
+                     placeholder="••••••••"
+                     @keyup.enter="authMode==='login' ? loginUser() : registerUser()">
+              <button @click="showPassword = !showPassword" class="pw-toggle" type="button">
+                {{ showPassword ? '🙈' : '👁️' }}
+              </button>
+            </div>
+            <!-- Strength bar (register only) -->
+            <div v-if="authMode === 'register' && authForm.password" class="mt-2">
+              <div class="pw-strength-bar">
+                <div class="pw-strength-fill"
+                     :style="{ width: passwordStrength.pct + '%', background: passwordStrength.color }"></div>
+              </div>
+              <p class="text-xs mt-1" :style="{ color: passwordStrength.color }">
+                {{ passwordStrength.label }}
+              </p>
+            </div>
+          </div>
+
+          <!-- Confirm password (register only) -->
+          <div v-if="authMode === 'register'">
+            <label class="text-xs text-slate-400 mb-1 block font-medium">Confirm Password</label>
+            <input v-model="authForm.confirmPassword"
+                   :type="showPassword ? 'text' : 'password'"
+                   class="calc-input"
+                   placeholder="••••••••"
+                   @keyup.enter="registerUser()">
+          </div>
+
+          <!-- Requirements checklist (register only) -->
+          <div v-if="authMode === 'register'" class="text-xs space-y-1">
+            <p :class="authForm.password.length >= 8 ? 'text-emerald-400' : 'text-slate-500'">
+              {{ authForm.password.length >= 8 ? '✓' : '○' }} At least 8 characters
+            </p>
+            <p :class="/[A-Z]/.test(authForm.password) ? 'text-emerald-400' : 'text-slate-500'">
+              {{ /[A-Z]/.test(authForm.password) ? '✓' : '○' }} One uppercase letter
+            </p>
+            <p :class="/[0-9]/.test(authForm.password) ? 'text-emerald-400' : 'text-slate-500'">
+              {{ /[0-9]/.test(authForm.password) ? '✓' : '○' }} One number
+            </p>
+          </div>
+
+        </div>
+
+        <!-- Submit button -->
+        <button @click="authMode === 'login' ? loginUser() : registerUser()"
+                :disabled="authLoading"
+                class="w-full mt-6 py-3 bg-sky-600 hover:bg-sky-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition">
+          {{ authLoading ? 'Please wait…' : (authMode === 'login' ? 'Sign In →' : 'Create Account →') }}
+        </button>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Profile Setup ─────────────────────────────────────────────────── -->
+  <div v-else-if="appState === 'setup'"
+       class="min-h-screen flex items-center justify-center p-4 py-10">
+    <div class="w-full max-w-xl bg-slate-900 border border-slate-700 rounded-2xl p-8 shadow-2xl">
+
+      <!-- Header -->
+      <div class="text-center mb-6">
+        <!-- Avatar upload -->
+        <div class="flex flex-col items-center gap-2 mb-4">
+          <label class="cursor-pointer" title="Upload profile photo">
+            <img v-if="currentUser && currentUser.avatar"
+                 :src="currentUser.avatar" class="avatar-circle w-16 h-16">
+            <div v-else class="avatar-placeholder w-16 h-16 text-2xl">👤</div>
+            <input type="file" accept="image/jpeg,image/png,image/webp,image/gif"
+                   class="hidden" @change="uploadAvatar">
+          </label>
+          <span class="text-xs text-slate-500">Click to upload photo (optional)</span>
+        </div>
+        <div class="text-5xl mb-3">🧬</div>
+        <h1 class="text-2xl font-bold text-white">Build Your Profile</h1>
+        <p class="text-slate-400 text-sm mt-2">
+          Every formula, zone, and recommendation adapts to your biometrics.
+          Signed in as <code class="text-sky-400">{{ currentUser && currentUser.email }}</code>.
+        </p>
+      </div>
+
+      <!-- Form -->
+      <div class="space-y-4">
+
+        <!-- Name -->
+        <div>
+          <label class="text-xs text-slate-400 mb-1 block font-medium">Name / Alias</label>
+          <input v-model="newProfile.name" type="text" class="calc-input"
+                 placeholder="e.g. Emilio" @keyup.enter="createProfile">
+        </div>
+
+        <!-- Age + Gender -->
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="text-xs text-slate-400 mb-1 block font-medium">Age <span class="text-slate-600 font-normal">(years)</span></label>
+            <div class="input-unit">
+              <input v-model.number="newProfile.age" type="number" class="calc-input" min="15" max="100"
+                     @change="autoCalcMaxHr">
+              <span class="unit-badge">yrs</span>
+            </div>
+          </div>
+          <div>
+            <label class="text-xs text-slate-400 mb-1 block font-medium">Biological Sex</label>
+            <select v-model="newProfile.gender" class="calc-input">
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Weight + Height -->
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="text-xs text-slate-400 mb-1 block font-medium">Body Weight <span class="text-slate-600 font-normal">(metric)</span></label>
+            <div class="input-unit">
+              <input v-model.number="newProfile.weight" type="number" class="calc-input" step="0.1" min="30" max="250">
+              <span class="unit-badge">kg</span>
+            </div>
+          </div>
+          <div>
+            <label class="text-xs text-slate-400 mb-1 block font-medium">Height <span class="text-slate-600 font-normal">(metric)</span></label>
+            <div class="input-unit">
+              <input v-model.number="newProfile.height" type="number" class="calc-input" min="100" max="250">
+              <span class="unit-badge">cm</span>
+            </div>
+            <p class="text-xs text-slate-600 mt-1">e.g. 5'9" = 175 cm · 6'0" = 183 cm</p>
+          </div>
+        </div>
+
+        <!-- HR Section -->
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <label class="text-xs text-slate-400 font-medium">Heart Rate Fields</label>
+            <button @click="showHrHelp = !showHrHelp"
+                    class="text-xs text-sky-400 hover:text-sky-300 transition underline underline-offset-2">
+              {{ showHrHelp ? '▲ Hide help' : '▼ How do I measure these?' }}
+            </button>
+          </div>
+
+          <!-- HR Help Panel -->
+          <div v-if="showHrHelp" class="hr-help-panel space-y-3">
+            <div>
+              <h4>🛑 Sleeping HR ≠ Resting HR</h4>
+              <p>Your smartwatch (Garmin, Fitbit, Apple Watch) records your <strong>sleeping HR</strong> during sleep — typically <strong>10–30% lower</strong> than true resting HR due to overnight parasympathetic dominance. Using sleeping HR in HR zone formulas shifts all your zones too low, causing systematic under-training.</p>
+              <p class="mt-1 text-orange-300 font-medium text-xs">⚠️ Do NOT use the lowest number your watch shows overnight as your resting HR.</p>
+            </div>
+            <div>
+              <h4>✅ How to measure true Resting HR</h4>
+              <p>Sit quietly for 5 minutes (no coffee, no movement). Place two fingers on your wrist or neck. Count beats for 60 seconds. Do this first thing in the morning for 3 days and average the results. Typical healthy adults: 55–75 bpm.</p>
+            </div>
+            <div>
+              <h4>📊 Max HR (Tanaka Formula)</h4>
+              <p>True max HR requires a graded exercise test to exhaustion. The Tanaka formula (<code>208 − 0.7 × age</code>) is the most validated age-based estimate (Tanaka et al., 2001). Click <strong>"Auto from age"</strong> below.</p>
+            </div>
+          </div>
+
+          <!-- Sleeping HR notice (always visible) -->
+          <div class="warn-notice text-xs">
+            <strong>Note:</strong> Enter your <strong>awake resting HR</strong> (measured seated, calm, 5 minutes).
+            Your wearable's overnight "sleeping HR" is 10–30 bpm lower — it is NOT resting HR.
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="text-xs text-slate-400 mb-1 block font-medium">Resting HR <span class="text-slate-600 font-normal">(awake, seated)</span></label>
+              <div class="input-unit">
+                <input v-model.number="newProfile.restingHr" type="number" class="calc-input" min="30" max="120">
+                <span class="unit-badge">bpm</span>
+              </div>
+            </div>
+            <div>
+              <label class="text-xs text-slate-400 mb-1 block font-medium">Max HR</label>
+              <div class="flex gap-2">
+                <div class="input-unit flex-1">
+                  <input v-model.number="newProfile.maxHr" type="number" class="calc-input" min="100" max="230">
+                  <span class="unit-badge">bpm</span>
+                </div>
+                <button @click="autoCalcMaxHr" title="Tanaka formula: 208 − 0.7 × age"
+                        class="flex-shrink-0 px-2.5 bg-sky-900/60 border border-sky-700 text-sky-400 text-xs rounded-lg hover:bg-sky-800/60 transition whitespace-nowrap">
+                  Auto
+                </button>
+              </div>
+              <p class="text-xs text-slate-600 mt-1">{{ newProfile.maxHr }} bpm (Tanaka from age {{ newProfile.age }})</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Belly fat note -->
+        <div class="info-notice text-xs">
+          <strong>Belly fat tracking:</strong> Once inside the app, visit <strong>📏 Belly Fat Measurement Guide</strong>
+          (Health section) for waist/hip measurement protocols, WHtR risk calculator, and monthly tracking guidance.
+          Requires only a tape measure.
+        </div>
+
+      </div>
+
+      <!-- Actions -->
+      <div class="mt-6 space-y-3">
+        <button @click="createProfile"
+                :disabled="!newProfile.name.trim()"
+                class="w-full py-3 bg-sky-600 hover:bg-sky-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition">
+          Create Profile &amp; Launch →
+        </button>
+        <button v-if="profiles.length > 0"
+                @click="appState = 'select'"
+                class="w-full py-2 text-slate-400 hover:text-slate-200 text-sm transition">
+          ← Back to profile list
+        </button>
+        <button @click="logout"
+                class="w-full py-2 text-slate-600 hover:text-red-400 text-xs transition">
+          Sign out
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Profile Selector ───────────────────────────────────────────────── -->
+  <div v-else-if="appState === 'select'"
+       class="min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-md">
+
+      <!-- User header -->
+      <div class="text-center mb-8">
+        <div class="flex items-center justify-center mb-3">
+          <img v-if="currentUser && currentUser.avatar"
+               :src="currentUser.avatar" class="avatar-circle w-14 h-14">
+          <div v-else class="avatar-placeholder w-14 h-14 text-2xl">👤</div>
+        </div>
+        <div class="text-5xl mb-1">🗺️</div>
+        <h1 class="text-2xl font-bold text-white">Longevity Blueprint</h1>
+        <p class="text-slate-400 text-xs mt-1">
+          {{ currentUser && currentUser.email }}
+        </p>
+        <p class="text-slate-500 text-sm mt-1">Select a profile to continue</p>
+      </div>
+
+      <div class="space-y-3 mb-6">
+        <div v-for="p in profiles" :key="p.id"
+             class="flex items-center justify-between bg-slate-900 border border-slate-700 hover:border-sky-600 rounded-xl px-4 py-3 transition cursor-pointer group"
+             @click="switchProfile(p.id)">
+          <div>
+            <div class="font-semibold text-white group-hover:text-sky-400 transition">{{ p.name }}</div>
+            <div class="text-xs text-slate-500">{{ p.age }}y · {{ p.weight }}kg · {{ p.height }}cm · {{ p.gender }}</div>
+          </div>
+          <button @click.stop="deleteProfile(p.id)"
+                  class="text-slate-600 hover:text-red-400 transition text-xs px-2 py-1 rounded">
+            Delete
+          </button>
+        </div>
+      </div>
+      <button @click="startNewProfile"
+              class="w-full py-3 border border-sky-600 text-sky-400 hover:bg-sky-900/30 font-semibold rounded-xl transition">
+        + New Profile
+      </button>
+      <button @click="logout"
+              class="w-full mt-2 py-2 text-slate-600 hover:text-red-400 text-sm transition">
+        Sign out
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Main Application ───────────────────────────────────────────────── -->
+  <div v-else-if="appState === 'app'" class="flex min-h-screen">
+
+    <!-- Mobile overlay -->
+    <div v-if="sidebarOpen" @click="sidebarOpen=false"
+         class="fixed inset-0 bg-black/60 z-20 lg:hidden"></div>
+
+    <!-- ── Sidebar ──────────────────────────────────────────────────────── -->
+    <aside :class="['fixed lg:sticky top-0 left-0 h-screen z-30 lg:z-auto w-72 bg-slate-900 border-r border-slate-800 flex flex-col overflow-y-auto transition-transform duration-200',
+                    sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0']">
+
+      <!-- Logo / Profile row -->
+      <div class="p-5 border-b border-slate-800 flex-shrink-0">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <!-- User avatar -->
+            <label class="cursor-pointer flex-shrink-0" title="Change profile photo">
+              <img v-if="currentUser && currentUser.avatar"
+                   :src="currentUser.avatar" class="avatar-circle">
+              <div v-else class="avatar-placeholder">👤</div>
+              <input type="file" accept="image/jpeg,image/png,image/webp,image/gif"
+                     class="hidden" @change="uploadAvatar">
+            </label>
+            <div class="min-w-0">
+              <div class="font-bold text-white text-sm leading-tight">{{ profile.name }}</div>
+              <div class="text-xs text-sky-400 truncate">{{ currentUser && currentUser.email }}</div>
+            </div>
+          </div>
+          <!-- Theme toggle (sidebar) -->
+          <button @click="toggleTheme" class="theme-btn no-print" :title="darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'">
+            {{ darkMode ? '☀️' : '🌙' }}
+          </button>
+        </div>
+        <div class="text-xs text-slate-500 grid grid-cols-3 gap-1">
+          <span class="bg-slate-800 rounded px-2 py-1 text-center">{{ profile.age }}y</span>
+          <span class="bg-slate-800 rounded px-2 py-1 text-center">{{ profile.weight }}kg</span>
+          <span class="bg-slate-800 rounded px-2 py-1 text-center">{{ profile.height }}cm</span>
+        </div>
+      </div>
+
+      <!-- Nav groups -->
+      <nav class="flex-1 p-3 space-y-4 overflow-y-auto">
+        <div v-for="group in navGroups" :key="group.label">
+          <div class="text-xs font-semibold text-slate-600 uppercase tracking-widest px-3 mb-1">
+            {{ group.label }}
+          </div>
+          <div class="space-y-0.5">
+            <button v-for="page in group.pages" :key="page.id"
+                    @click="setPage(page.id)"
+                    :class="['nav-btn', currentPageId === page.id ? 'active' : '']">
+              <span>{{ page.icon }} {{ page.title }}</span>
+              <span v-if="currentPageId === page.id" class="w-1.5 h-1.5 rounded-full bg-sky-400 flex-shrink-0"></span>
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      <!-- Sidebar footer: translate + actions -->
+      <div class="p-4 border-t border-slate-800 space-y-2 flex-shrink-0 no-print">
+        <!-- Google Translate -->
+        <div class="translate-wrap">
+          <span>🌐</span>
+          <div id="google_translate_element"></div>
+        </div>
+        <button @click="appState='select'"
+                class="w-full text-xs text-slate-500 hover:text-slate-300 py-1.5 transition text-left">
+          ↩ Switch Profile
+        </button>
+        <button @click="logout"
+                class="w-full text-xs text-slate-600 hover:text-red-400 py-1.5 transition text-left">
+          Sign out
+        </button>
+      </div>
+    </aside>
+
+    <!-- ── Main Content ─────────────────────────────────────────────────── -->
+    <div class="flex-1 min-w-0 flex flex-col">
+
+      <!-- Top bar — visible on all screens (desktop + mobile) -->
+      <header class="sticky top-0 z-10 bg-slate-950/90 backdrop-blur border-b border-slate-800 flex items-center justify-between px-4 py-2.5 no-print">
+        <!-- Mobile menu button -->
+        <button @click="sidebarOpen=true" class="text-slate-400 hover:text-white lg:hidden mr-3 flex-shrink-0">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        </button>
+
+        <!-- Page title (desktop hidden since sidebar shows it; always shown on mobile) -->
+        <span class="font-semibold text-sm text-white truncate lg:hidden">{{ currentPage.icon }} {{ currentPage.title }}</span>
+
+        <!-- Desktop: breadcrumb -->
+        <span class="hidden lg:block text-sm text-slate-400">{{ currentPage.icon }} <span class="text-white font-medium">{{ currentPage.title }}</span></span>
+
+        <!-- Right side controls -->
+        <div class="flex items-center gap-2 flex-shrink-0 ml-3">
+          <!-- PDF export (only on content pages with calculators) -->
+          <button v-if="!currentPage.isDashboard && !currentPage.isJournal"
+                  @click="exportPDF"
+                  class="pdf-btn no-print"
+                  title="Export this page as PDF">
+            📄 PDF
+          </button>
+
+          <!-- Theme toggle (header, desktop) -->
+          <button @click="toggleTheme" class="theme-btn no-print"
+                  :title="darkMode ? 'Light Mode' : 'Dark Mode'">
+            <span>{{ darkMode ? '☀️' : '🌙' }}</span>
+            <span class="hidden sm:inline text-xs">{{ darkMode ? 'Light' : 'Dark' }}</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Page content -->
+      <main class="flex-1 p-4 sm:p-6 lg:p-8 max-w-4xl w-full mx-auto">
+
+        <!-- Hero image -->
+        <div v-if="currentPage.hero"
+             class="hero rounded-2xl mb-6 overflow-hidden"
+             :style="heroStyle(currentPage.hero)">
+          <div class="hero-content">
+            <h1 class="text-3xl sm:text-4xl font-bold text-white leading-tight">
+              {{ currentPage.icon }} {{ currentPage.title }}
+            </h1>
+            <p class="text-sky-300 text-sm mt-1 font-medium">
+              Page {{ currentPage.id }} of {{ DB.length }}
+            </p>
+          </div>
+        </div>
+        <!-- Fallback title (Dashboard / Journal) -->
+        <div v-else class="mb-6">
+          <h1 class="text-3xl font-bold text-white">{{ currentPage.icon }} {{ currentPage.title }}</h1>
+        </div>
+
+        <!-- ── DASHBOARD (page 20) ─────────────────────────────────────── -->
+        <div v-if="currentPage.isDashboard" class="space-y-6">
+          <div class="prose-custom">
+            <p v-for="(item, i) in currentPage.content" :key="i" v-html="item.text"></p>
+          </div>
+
+          <div class="module-card space-y-4">
+            <h2 class="text-sky-400 font-semibold uppercase tracking-wider text-sm">Daily Metrics</h2>
+            <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div class="stat-box">
+                <label class="text-xs text-slate-400 block mb-1">Calories (kcal)</label>
+                <input v-model.number="dashboard.calories" type="number"
+                       class="calc-input text-center text-xl font-bold text-emerald-400">
+              </div>
+              <div class="stat-box">
+                <label class="text-xs text-slate-400 block mb-1">Protein (g)</label>
+                <input v-model.number="dashboard.protein" type="number"
+                       class="calc-input text-center text-xl font-bold text-sky-400">
+              </div>
+              <div class="stat-box">
+                <label class="text-xs text-slate-400 block mb-1">Water (L)</label>
+                <input v-model.number="dashboard.water" type="number" step="0.25"
+                       class="calc-input text-center text-xl font-bold text-blue-400">
+              </div>
+              <div class="stat-box">
+                <label class="text-xs text-slate-400 block mb-1">Sleep (hrs)</label>
+                <input v-model.number="dashboard.sleep" type="number" step="0.5"
+                       class="calc-input text-center text-xl font-bold text-purple-400">
+              </div>
+            </div>
+          </div>
+
+          <div class="module-card space-y-3">
+            <h2 class="text-sky-400 font-semibold uppercase tracking-wider text-sm">Daily Protocol Checklist</h2>
+            <button v-for="(item, key) in {
+              fasted5k:  '🏃 Fasted morning 5k (Zone 2)',
+              suppDone:  '💊 Supplements taken (D3/K2, Omega-3, Creatine)',
+              liftDone:  '🏋️ Lifting session completed',
+              rideDone:  '🚴 Cycling session completed',
+              heelDone:  '🦶 Heel rehab protocol (Rathleff)',
+              sleepDone: '😴 In bed by 10pm — pre-sleep glycine + magnesium'
+            }" :key="key" @click="toggleDash(key)" class="check-row">
+              <span class="text-lg">{{ dashboard[key] ? '✅' : '⬜' }}</span>
+              <span class="text-sm text-slate-300 flex-1">{{ item }}</span>
+            </button>
+          </div>
+
+          <div class="module-card">
+            <h2 class="text-sky-400 font-semibold uppercase tracking-wider text-sm mb-3">Daily Notes</h2>
+            <textarea v-model="dashboard.notes" rows="4" class="calc-input resize-none"
+                      placeholder="Training feel, joint status, energy levels, observations…"></textarea>
+          </div>
+        </div>
+        <!-- END DASHBOARD -->
+
+        <!-- ── EXERCISE JOURNAL (page 21) ─────────────────────────────── -->
+        <div v-else-if="currentPage.isJournal" class="space-y-6">
+          <div class="prose-custom">
+            <p v-for="(item, i) in currentPage.content" :key="i" v-html="item.text"></p>
+          </div>
+
+          <div class="module-card space-y-4">
+            <h2 class="text-sky-400 font-semibold uppercase tracking-wider text-sm">Log a Session</h2>
+            <div class="flex gap-2">
+              <button @click="newLog.type='run'"   :class="['pill-btn', newLog.type==='run'   ? 'active-run'   : '']">🏃 Run</button>
+              <button @click="newLog.type='cycle'" :class="['pill-btn', newLog.type==='cycle' ? 'active-cycle' : '']">🚴 Ride</button>
+              <button @click="newLog.type='lift'"  :class="['pill-btn', newLog.type==='lift'  ? 'active-lift'  : '']">🏋️ Lift</button>
+            </div>
+            <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <div>
+                <label class="text-xs text-slate-400 mb-1 block">Date</label>
+                <input v-model="newLog.date" type="date" class="calc-input">
+              </div>
+              <div>
+                <label class="text-xs text-slate-400 mb-1 block">Duration (min)</label>
+                <input v-model="newLog.duration" type="number" class="calc-input">
+              </div>
+              <div v-if="newLog.type !== 'lift'">
+                <label class="text-xs text-slate-400 mb-1 block">Distance (km)</label>
+                <input v-model="newLog.distance" type="number" step="0.1" class="calc-input">
+              </div>
+              <div v-if="newLog.type === 'lift'">
+                <label class="text-xs text-slate-400 mb-1 block">Weight (kg)</label>
+                <input v-model="newLog.weight" type="number" step="2.5" class="calc-input">
+              </div>
+              <div v-if="newLog.type === 'lift'">
+                <label class="text-xs text-slate-400 mb-1 block">Reps</label>
+                <input v-model="newLog.reps" type="number" class="calc-input">
+              </div>
+            </div>
+            <div>
+              <label class="text-xs text-slate-400 mb-1 block">Notes (optional)</label>
+              <input v-model="newLog.notes" type="text" class="calc-input" placeholder="Pace, effort, form notes…">
+            </div>
+            <button @click="saveLog" :disabled="logLoading"
+                    class="w-full py-2.5 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-semibold rounded-xl transition">
+              {{ logLoading ? 'Saving…' : '+ Add Session' }}
+            </button>
+          </div>
+
+          <div v-if="logHasData" class="space-y-6">
+            <div class="module-card">
+              <h2 class="text-sky-400 font-semibold uppercase tracking-wider text-sm mb-4">Activity Distribution</h2>
+              <div class="max-w-xs mx-auto">
+                <donut-chart :chart-data="activityDonutData"></donut-chart>
+              </div>
+            </div>
+            <div class="module-card" v-if="workoutLog.some(e => e.type==='run')">
+              <h2 class="text-sky-400 font-semibold uppercase tracking-wider text-sm mb-4">Running — Last 10 Sessions</h2>
+              <bar-chart :chart-data="runChartData"></bar-chart>
+            </div>
+            <div class="module-card" v-if="workoutLog.some(e => e.type==='cycle')">
+              <h2 class="text-orange-400 font-semibold uppercase tracking-wider text-sm mb-4">Cycling — Last 10 Sessions</h2>
+              <bar-chart :chart-data="cycleChartData"></bar-chart>
+            </div>
+            <div class="module-card" v-if="workoutLog.some(e => e.type==='lift')">
+              <h2 class="text-purple-400 font-semibold uppercase tracking-wider text-sm mb-4">Lifting — Last 10 Sessions</h2>
+              <bar-chart :chart-data="liftChartData"></bar-chart>
+            </div>
+          </div>
+
+          <div class="module-card space-y-3">
+            <div class="flex items-center justify-between flex-wrap gap-2">
+              <h2 class="text-sky-400 font-semibold uppercase tracking-wider text-sm">Session History</h2>
+              <div class="flex gap-2">
+                <button @click="setLogFilter('all')"   :class="['pill-btn', logFilter==='all'   ? 'active-run'   : '']">All</button>
+                <button @click="setLogFilter('run')"   :class="['pill-btn', logFilter==='run'   ? 'active-run'   : '']">Runs</button>
+                <button @click="setLogFilter('cycle')" :class="['pill-btn', logFilter==='cycle' ? 'active-cycle' : '']">Rides</button>
+                <button @click="setLogFilter('lift')"  :class="['pill-btn', logFilter==='lift'  ? 'active-lift'  : '']">Lifts</button>
+              </div>
+            </div>
+            <div v-if="filteredLog.length === 0" class="text-center py-8 text-slate-500 text-sm">
+              No sessions logged yet. Add your first above.
+            </div>
+            <div v-for="entry in filteredLog" :key="entry.id"
+                 class="flex items-start justify-between bg-slate-800/50 rounded-lg p-3 gap-2">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="font-semibold text-sm" :class="logTypeColor(entry.type)">{{ logTypeLabel(entry.type) }}</span>
+                  <span class="text-xs text-slate-500">{{ entry.date }}</span>
+                  <span v-if="entry.duration" class="text-xs text-slate-400">{{ entry.duration }}min</span>
+                  <span v-if="entry.distance" class="text-xs text-slate-400">{{ entry.distance }}km</span>
+                  <span v-if="entry.weight"   class="text-xs text-slate-400">{{ entry.weight }}kg × {{ entry.reps }}r</span>
+                </div>
+                <p v-if="entry.notes" class="text-xs text-slate-500 mt-1 truncate">{{ entry.notes }}</p>
+              </div>
+              <button @click="deleteLog(entry.id)"
+                      class="text-slate-600 hover:text-red-400 transition flex-shrink-0 text-xs px-1">✕</button>
+            </div>
+          </div>
+        </div>
+        <!-- END JOURNAL -->
+
+        <!-- ── CONTENT PAGES ──────────────────────────────────────────── -->
+        <div v-else class="space-y-6 prose-custom">
+          <template v-for="(item, i) in currentPage.content" :key="i">
+
+            <p v-if="item.type === 'paragraph'" v-html="item.text"></p>
+
+            <blockquote v-else-if="item.type === 'quote'">{{ item.text }}</blockquote>
+
+            <ul v-else-if="item.type === 'list'"
+                class="space-y-3 bg-slate-900/60 border border-slate-800 rounded-xl p-5">
+              <li v-for="(li, j) in item.items" :key="j"
+                  class="flex gap-2 text-slate-300 text-sm leading-relaxed">
+                <span class="text-sky-500 mt-0.5 flex-shrink-0">▸</span>
+                <span v-html="li"></span>
+              </li>
+            </ul>
+
+            <div v-else-if="item.type === 'equation'"
+                 class="bg-slate-900 border border-slate-700 rounded-xl p-4 text-center overflow-x-auto">
+              <span v-html="item.text"></span>
+            </div>
+
+            <!-- Calculator components -->
+            <bmr-calc          v-else-if="item.component === 'BmrCalc'"          :profile="profile"></bmr-calc>
+            <body-fat-calc     v-else-if="item.component === 'BodyFatCalc'"      :profile="profile"></body-fat-calc>
+            <macro-calc        v-else-if="item.component === 'MacroCalc'"        :profile="profile"></macro-calc>
+            <vo2-max-calc      v-else-if="item.component === 'Vo2MaxCalc'"       :profile="profile"></vo2-max-calc>
+            <hr-zone-calc      v-else-if="item.component === 'HrZoneCalc'"       :profile="profile"></hr-zone-calc>
+            <one-rm-calc       v-else-if="item.component === 'OneRmCalc'"        :profile="profile"></one-rm-calc>
+            <ideal-weight-calc v-else-if="item.component === 'IdealWeightCalc'"  :profile="profile"></ideal-weight-calc>
+            <belly-measure-calc v-else-if="item.component === 'BellyMeasureCalc'" :profile="profile"></belly-measure-calc>
+            <env-calc          v-else-if="item.component === 'EnvCalc'"          :profile="profile"></env-calc>
+
+          </template>
+        </div>
+        <!-- END CONTENT PAGES -->
+
+        <!-- Page navigation footer -->
+        <div class="mt-10 pt-6 border-t border-slate-800 flex justify-between items-center no-print">
+          <button v-if="currentPageId > 1"
+                  @click="setPage(currentPageId - 1)"
+                  class="text-sm text-slate-400 hover:text-sky-400 transition flex items-center gap-1">
+            ← {{ DB[currentPageId - 2].title }}
+          </button>
+          <span v-else></span>
+          <button v-if="currentPageId < DB.length"
+                  @click="setPage(currentPageId + 1)"
+                  class="text-sm text-slate-400 hover:text-sky-400 transition flex items-center gap-1">
+            {{ DB[currentPageId].title }} →
+          </button>
+        </div>
+
+      </main>
+    </div>
+
+  </div>
+  <!-- end app states -->
+
+</div>
+<!-- end #app -->
+
+<!--
+  Script load order:
+    1. db.js        — DB[], NAV_GROUPS
+    2. storage.js   — Storage async client
+    3. app.js       — createApp() as global `app`
+    4. calculators.js — register all calculator components on `app`
+    5. charts.js    — register BarChart, DonutChart on `app`
+    6. app.mount()  — wire everything
+-->
+<script src="src/js/db.js"></script>
+<script src="src/js/storage.js"></script>
+<script src="src/js/app.js"></script>
+<script src="src/js/components/calculators.js"></script>
+<script src="src/js/components/charts.js"></script>
+<script>app.mount('#app');</script>
+
+</body>
+</html>
