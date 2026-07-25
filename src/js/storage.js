@@ -339,6 +339,18 @@ const Storage = {
     return data;
   },
 
+  // ── Images (Pexels-backed hero photos) ──────────────────────────────────
+
+  async getHeroImage(query) {
+    try {
+      const res = await fetch(`/api/images/hero?query=${encodeURIComponent(query)}`);
+      if (!res.ok) return null;
+      return res.json(); // { url, photographer, pexelsUrl } | null
+    } catch {
+      return null;
+    }
+  },
+
   // ── Health check ──────────────────────────────────────────────────────────
 
   async ping() {

@@ -38,6 +38,7 @@ src/server/                       — backend, one small file per concern
 │   ├── openai.js                   — OpenAI vision analyzer (server-side key, never sent to browser)
 │   ├── quota.js                    — durable per-account usage quotas (uploads, AI calls) — usage_events table
 │   ├── validation.js                — shared input validation (password policy)
+│   ├── pexels.js                    — Pexels photo search + 24h in-memory cache, server-side key only
 │   └── exporters/
 │       ├── shared.js               — date/sort helpers shared by all 3 exporters
 │       ├── csv.js                  — week → CSV text
@@ -52,7 +53,8 @@ src/server/                       — backend, one small file per concern
     ├── goals.js                       — Goal Dashboard CRUD + GET .../goals/templates
     ├── training.js                     — Week Builder: weeks/blocks CRUD, autobuild, CSV/ICS/PDF export
     ├── tracker.js                       — Daily Tracker: Strava link + screenshot upload
-    └── ai.js                             — POST .../ai/analyze (day/week/month, cached)
+    ├── ai.js                             — POST .../ai/analyze (day/week/month, cached)
+    └── images.js                          — GET /api/images/hero (Pexels-backed, graceful null fallback)
 
 docs/
 ├── ARCHITECTURE.md               — this file
@@ -130,6 +132,14 @@ Deterministic and rules-based — **not** an AI feature. Given a goal's `target_
 
 `POST /api/profiles/:id/ai/analyze` with `{ scope: 'day'|'week'|'month', date, regenerate? }`. Computes the period's start/end date, gathers `workout_logs` + `daily_trackers` (+ their screenshot files, base64-encoded, capped at 10 images) for that window, and sends one chat-completions request to a vision-capable OpenAI model (`OPENAI_MODEL` env var). Results are cached in `ai_analyses` keyed by `(profile_id, scope, period_start)` — repeat views return the cached row unless `regenerate: true` is passed, so viewing the same period twice never re-spends API credits silently.
 
+## Hero images (lib/pexels.js, routes/images.js)
+
+The 22 content pages each carry a `heroQuery` string in `db.js` (e.g. `'mountain sunrise trail runner'`) instead of a hardcoded photo URL. `app.js`'s `loadHeroImage()` calls `GET /api/images/hero?query=...` on every page navigation (`setPage()`) and once after the initial profile load, caching the result in `heroImageCache` keyed by query string (not page id — several pages could share a query) so the same query is never re-fetched client-side either.
+
+- **Server-side cache**: `lib/pexels.js` also caches per-query for 24h in-memory — the queries are a fixed set of 22 strings, so without this every page view by every user would re-hit Pexels for the exact same handful of queries, which is both wasteful and a fast way to exhaust Pexels' free-tier rate limit (200 req/hour).
+- **Graceful degradation everywhere**: no `PEXELS_API_KEY` configured, a failed request, or zero results — all three return `null` (a normal 200 response, not an error). The frontend's `resolvedHero` computed treats `null` exactly like a page with no `heroQuery` at all: it falls back to the plain title header. Nothing breaks or shows an error state if you never add a Pexels key.
+- **Attribution**: Pexels' API terms require crediting the photographer and linking back to Pexels when a photo is displayed — `index.html`'s hero block renders "Photo by {photographer} on Pexels" with both links whenever a hero image is showing. Don't remove this if you touch that block.
+
 ---
 
 ## New pages (frontend)
@@ -170,5 +180,6 @@ Three independent concerns, one page:
 | `DB_HOST` / `DB_PORT` / `DB_USER` / `DB_PASSWORD` / `DB_NAME` | MySQL connection (used by `pool.js` and `setup.js`) |
 | `OPENAI_API_KEY` | Server-side only — never sent to the browser |
 | `OPENAI_MODEL` | Defaults to `gpt-4o-mini` in `lib/openai.js` if unset |
+| `PEXELS_API_KEY` | Optional — hero images just don't appear (plain title header) if unset |
 
 See `.env.example` for a ready-to-copy template.

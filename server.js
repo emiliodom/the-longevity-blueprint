@@ -69,6 +69,7 @@ app.get('/api/health', (_req, res) => res.json({ ok: true }));
 // ── Routers ──────────────────────────────────────────────────────────────
 app.use('/api/auth',                      require('./src/server/routes/auth'));
 app.use('/api/account',                   require('./src/server/routes/account'));
+app.use('/api/images',                    require('./src/server/routes/images'));
 app.use('/api/profiles',                  require('./src/server/routes/profiles'));
 app.use('/api/profiles/:id/dashboard',    require('./src/server/routes/dashboard'));
 app.use('/api/profiles/:id/log',          require('./src/server/routes/log'));

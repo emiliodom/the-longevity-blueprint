@@ -25,7 +25,8 @@ npm install
 # 3. Configure environment
 cp .env.example .env
 # edit .env: DB_HOST / DB_PORT / DB_USER / DB_PASSWORD / DB_NAME,
-# SESSION_SECRET, and (optional but needed for the AI Analyzer) OPENAI_API_KEY
+# SESSION_SECRET, (optional, needed for the AI Analyzer) OPENAI_API_KEY, and
+# (optional, needed for hero photos) PEXELS_API_KEY
 
 # 4. Create the database schema (safe to re-run any time)
 npm run db:setup
@@ -146,6 +147,10 @@ Allowed formats: **JPEG, PNG, WebP, GIF** · Maximum size: **2 MB**
 ### Daily Tracker + AI Analyzer
 - Log a Strava activity link, notes, and upload screenshots (Strava/insights/wearable summaries) per day
 - **AI Analyzer** (OpenAI, server-side key): day / week / month analysis that reads both your logged data and the screenshots themselves (vision model), with results cached so re-viewing a period doesn't re-spend API credits
+- Screenshot uploads and AI analyses are both capped per account per day (60 and 30 respectively) — a hard wall against any single account exhausting storage or OpenAI credits, with no exceptions for any account. Current usage is visible on the Settings page.
+
+### Settings
+- Change password, see current upload/AI usage against the daily limits, set a preferred language (applies the Google Translate widget's language and remembers it), toggle theme
 
 ### Multi-Profile Support
 - Create unlimited profiles per account (e.g. different training phases)
@@ -157,6 +162,7 @@ Allowed formats: **JPEG, PNG, WebP, GIF** · Maximum size: **2 MB**
 - **Google Translate** widget — English, Spanish, French, German, Portuguese, Italian, Chinese, Japanese, Korean, Arabic, Hindi, Russian
 - **PDF export** — browser print dialog for any calculator page (the Week Builder has its own server-rendered PDF/CSV/ICS export instead)
 - **Avatar upload** — personal photo shown in sidebar and profile selector
+- **Hero images** — each content page's header photo comes from Pexels (optional `PEXELS_API_KEY`); pages just show a plain title header if it's not configured
 
 ---
 

@@ -22,7 +22,7 @@
 const DB = [
   {
     id: 1, icon: '🗺️', title: 'Master Blueprint & Longevity',
-    hero: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=1200&h=400&fit=crop',
+    heroQuery: 'mountain sunrise trail runner',
     content: [
       { type: 'paragraph', text: '<strong>The Paradigm Shift:</strong> The goal is no longer just finishing rides or maintaining a streak; the ultimate objective is high-performance longevity and aggressive structural recomposition. You are building a massive cardiovascular engine capable of extreme endurance, while simultaneously using precise hypertrophic signals to strip visceral fat and construct a solid, athletic core.' },
       { type: 'paragraph', text: 'Longevity researchers like Seam have achieved a biological age of 10.2 using the "Bor\'s Age" calculator analyzing 22 clinical blood markers. This establishes a scientific precedent: with targeted nutrition, caloric cycling, and specific training stressors, the body can radically reverse its aging markers.' },
@@ -37,7 +37,7 @@ const DB = [
   },
   {
     id: 2, icon: '🎯', title: 'Visceral Fat & Biomarkers',
-    hero: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=1200&h=400&fit=crop',
+    heroQuery: 'measuring tape waist fitness',
     content: [
       { type: 'paragraph', text: 'Midsection flaccidity is not a cosmetic issue — it is a critical metabolic warning. This is <strong>visceral fat</strong> (VAT). Unlike subcutaneous fat, it accumulates around internal organs and secretes pro-inflammatory cytokines (IL-6, TNF-alpha) directly into the portal vein, driving systemic insulin resistance, cardiovascular disease, and accelerated cellular aging.' },
       { type: 'paragraph', text: 'The male body operates at peak hormonal efficiency between 10–12% body fat. In this zone estrogen conversion via aromatase is minimized, free testosterone is optimized, insulin sensitivity is maximized, and mitochondrial density peaks. Above 15%, toxic adipose tissue raises all-cause mortality risk linearly.' },
@@ -52,7 +52,7 @@ const DB = [
   },
   {
     id: 3, icon: '⚡', title: 'Caloric Engine & Metabolic Math',
-    hero: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=1200&h=400&fit=crop',
+    heroQuery: 'healthy meal prep kitchen',
     content: [
       { type: 'paragraph', text: 'To strip visceral fat without starving your daily 5k or catabolizing muscle tissue, we rely entirely on <strong>precise metabolic math</strong>. Guesswork leads to muscle wasting (too low) or fat storage (too high). We begin with Basal Metabolic Rate — the energy required to keep your organs functioning at complete rest.' },
       { type: 'paragraph', text: 'From BMR, three critical expenditure layers stack: <strong>NEAT</strong> (Non-Exercise Activity Thermogenesis — typing, fidgeting; can vary 700 kcal/day between individuals), <strong>TEF</strong> (Thermic Effect of Food — digesting protein burns up to 30% of its calories), and <strong>EAT</strong> (Exercise Activity Thermogenesis — your 5k and rides).' },
@@ -67,7 +67,7 @@ const DB = [
   },
   {
     id: 4, icon: '🧬', title: 'Protein Mandate & Macro Engineering',
-    hero: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=1200&h=400&fit=crop',
+    heroQuery: 'grilled chicken protein meal',
     content: [
       { type: 'paragraph', text: 'Optimal recomposition for endurance-heavy athletes centers on moderate-to-high protein, moderate-to-high carbohydrates (for glycogen), and deliberately lower fat. Fat contains 9 kcal/gram — biologically expensive when maintaining a deficit while eating sufficient volume.' },
       { type: 'paragraph', text: 'The primary lever for retaining lean mass in a deficit is hitting the <strong>Leucine Threshold</strong>. Leucine flips the metabolic switch for muscle protein synthesis (MPS). You need ~3g leucine per meal to maximally stimulate MPS, equating to 30–40g of high-quality complete protein per sitting. Spreading across 3–4 feedings produces 25–40% more total daily MPS versus one or two large meals.' },
@@ -83,7 +83,7 @@ const DB = [
   },
   {
     id: 5, icon: '🇬🇹', title: 'Guatemalan Nutrition Protocol',
-    hero: 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=1200&h=400&fit=crop',
+    heroQuery: 'latin american food black beans',
     content: [
       { type: 'paragraph', text: 'No expensive imported superfoods required. We construct a mathematically precise "clinically Mediterranean" macro profile using high-density, highly accessible local Guatemalan staples — rich in phytochemicals, antioxidants, polyphenols, and trace minerals essential for massive cellular turnover.' },
       { type: 'list', items: [
@@ -96,7 +96,7 @@ const DB = [
   },
   {
     id: 6, icon: '🎲', title: 'Sunday Strategic Surplus',
-    hero: 'https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?w=1200&h=400&fit=crop',
+    heroQuery: 'grilled steak feast table',
     content: [
       { type: 'paragraph', text: 'Sunday is your scientifically-sanctioned caloric surplus day. After a week of maintained deficit, the body\'s metabolic rate begins to downregulate: leptin falls, thyroid output decreases, cortisol rises — the triple threat of metabolic adaptation. The Sunday surplus actively resets all three, preventing the starvation-mode plateau.' },
       { type: 'paragraph', text: 'Research on <strong>glycogen supercompensation</strong> shows a massive carbohydrate influx following depletion allows endurance athletes to load muscle glycogen above baseline. Studies demonstrate 10–15% higher power outputs during Monday and Tuesday sessions following a Sunday surplus.' },
@@ -110,7 +110,7 @@ const DB = [
   },
   {
     id: 7, icon: '💊', title: 'Minimalist Supplement Stack',
-    hero: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=1200&h=400&fit=crop',
+    heroQuery: 'vitamin supplements pills',
     content: [
       { type: 'paragraph', text: 'The supplement industry thrives on complexity. You do not need 200 pills. A minimalist stack of highly researched compounds yields 99% of available physiological benefit. Criteria: multiple independent meta-analyses confirming efficacy, safe at standard doses, addressing a genuine gap in food-based nutrition.' },
       { type: 'list', items: [
@@ -125,7 +125,7 @@ const DB = [
   },
   {
     id: 8, icon: '🖥️', title: 'Developer Athlete Advanced Stack',
-    hero: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=1200&h=400&fit=crop',
+    heroQuery: 'programmer desk night coding',
     content: [
       { type: 'paragraph', text: 'Your professional life is a physiological risk factor. 8–10 hours daily of high-luminance IDE displays and intense cognitive work places immense oxidative stress on ocular nerves and chronically activates the sympathetic nervous system — precisely the system you need to down-regulate for recovery.' },
       { type: 'list', items: [
@@ -138,7 +138,7 @@ const DB = [
   },
   {
     id: 9, icon: '🏃', title: 'Daily 5k & VO₂ Max Engine',
-    hero: 'https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?w=1200&h=400&fit=crop',
+    heroQuery: 'runner running road morning',
     content: [
       { type: 'paragraph', text: 'Your 5k daily streak is a magnificent testament to consistency. However, execution dictates whether it builds a massive aerobic engine or chronically degrades your joints. Most amateur endurance athletes train in the "grey zone" — too fast to maximize aerobic adaptation, too slow to produce meaningful anaerobic adaptation. This produces chronic fatigue with minimal gain.' },
       { type: 'list', items: [
@@ -152,7 +152,7 @@ const DB = [
   },
   {
     id: 10, icon: '👟', title: 'Structural Armor — Shoe Geometry',
-    hero: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=1200&h=400&fit=crop',
+    heroQuery: 'running shoes close up',
     content: [
       { type: 'paragraph', text: 'Running 5km daily means feet absorb ground-reaction forces of 2.5–3× body weight per stride. Over 5km at a 1.5m stride length, approximately 3,300 strides accumulate per session. The geometry of your footwear is structural engineering, not cosmetics.' },
       { type: 'list', items: [
@@ -165,7 +165,7 @@ const DB = [
   },
   {
     id: 11, icon: '🚴', title: 'Sunday Ride — Power & Endurance',
-    hero: 'https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=1200&h=400&fit=crop',
+    heroQuery: 'cyclist road bike',
     content: [
       { type: 'paragraph', text: 'To get faster on road, drop local riders on climbs, and build endurance for 70.3 Ironman ambitions, you must reform power application. The amateur "surge and coast" methodology creates massive lactate spikes, prevents fat adaptation at aerobic threshold, and burns limited neurological "matches" per ride.' },
       { type: 'list', items: [
@@ -179,7 +179,7 @@ const DB = [
   },
   {
     id: 12, icon: '🏋️', title: 'Barbell Recomposition Protocol',
-    hero: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1200&h=400&fit=crop',
+    heroQuery: 'barbell weightlifting gym',
     content: [
       { type: 'paragraph', text: 'Endurance cardio shrinks the body — makes you a lighter version of the same shape. Heavy resistance training architectures the body — changes structural proportions. Renee Landers began lifting at age 60 after spinal fusion surgery and completely transformed her physique, proving that structured mechanical tension is the fountain of youth for connective tissue and bone density at any age.' },
       { type: 'paragraph', text: '<strong>The Science of Hypertrophy:</strong> Muscle grows in response to two stimuli: <strong>mechanical tension</strong> (force on muscle fibers under load) and <strong>proximity to failure</strong> (pushing until the muscle cannot contract). Research by Stuart Phillips and Brad Schoenfeld confirms: reps within 3–5 of muscular failure produce near-identical hypertrophy regardless of rep count. If a set is easy, it is a warm-up.' },
@@ -189,7 +189,7 @@ const DB = [
   },
   {
     id: 13, icon: '💪', title: 'Workout A — Upper Body & Core',
-    hero: 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=1200&h=400&fit=crop',
+    heroQuery: 'pushup workout gym',
     content: [
       { type: 'paragraph', text: 'This session targets chest, upper back, and core using pushup handles, 17.8 lb dumbbell, ab wheel, and resistance bands. Rest strictly 90 seconds between sets. Perform Monday and Thursday. Target: 35 minutes maximum.' },
       { type: 'list', items: [
@@ -203,7 +203,7 @@ const DB = [
   },
   {
     id: 14, icon: '🦵', title: 'Workout B — Lower Body & Posterior Chain',
-    hero: 'https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=1200&h=400&fit=crop',
+    heroQuery: 'barbell squat gym',
     content: [
       { type: 'paragraph', text: 'This session utilizes the barbell with ~60 lbs of plates to target the posterior chain — hamstrings, glutes, and spinal erectors. The primary power generator for both cycling and running. A strong posterior chain is the most effective protection for lower back and knees. Perform Tuesday.' },
       { type: 'list', items: [
@@ -217,7 +217,7 @@ const DB = [
   },
   {
     id: 15, icon: '🤸', title: 'Pull-Up Benchmark',
-    hero: 'https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?w=1200&h=400&fit=crop',
+    heroQuery: 'pull up bar exercise',
     content: [
       { type: 'paragraph', text: 'The strict dead-hang pull-up is the undisputed benchmark of upper body relative strength. Unlike any barbell lift, it normalizes strength against body weight — directly penalizing excess body fat. You cannot fake a pull-up. It is the most honest single metric of the recomposition process.' },
       { type: 'list', items: [
@@ -230,7 +230,7 @@ const DB = [
   },
   {
     id: 16, icon: '🦶', title: 'Ankle & Heel Rehabilitation',
-    hero: 'https://images.unsplash.com/photo-1508735153459-4c4a0af4efff?w=1200&h=400&fit=crop',
+    heroQuery: 'physical therapy ankle stretch',
     content: [
       { type: 'paragraph', text: 'Your unilateral left heel pathology — most likely Achilles tendinopathy or plantar fasciitis — will not resolve through passive rest. Tendons are avascular (extremely low blood flow). Without active loading, the tendon becomes progressively stiffer and more brittle. You must mechanically load it in a controlled, progressive manner to stimulate collagen remodeling.' },
       { type: 'list', items: [
@@ -243,7 +243,7 @@ const DB = [
   },
   {
     id: 17, icon: '🩸', title: 'Blood Markers & Biological Age',
-    hero: 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=1200&h=400&fit=crop',
+    heroQuery: 'blood test laboratory',
     content: [
       { type: 'paragraph', text: 'Physical fitness metrics are lagging indicators. Blood markers are leading indicators — they reveal dysfunction years before clinical symptoms. Once lifestyle protocols are established, biological age optimization requires annual laboratory testing.' },
       { type: 'list', items: [
@@ -259,7 +259,7 @@ const DB = [
   },
   {
     id: 18, icon: '😴', title: 'Recovery & Nervous System Regulation',
-    hero: 'https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?w=1200&h=400&fit=crop',
+    heroQuery: 'meditation breathing calm',
     content: [
       { type: 'paragraph', text: 'Waking resting heart rates of 64 bpm and crashed HRV after weekend efforts signal the autonomic nervous system is locked in chronic "fight or flight" (sympathetic) state. This state instructs the body to preferentially store visceral fat and catabolize lean muscle. Growth, repair, and fat loss all require the opposing "rest and digest" (parasympathetic) state. You cannot out-train a dysregulated nervous system.' },
       { type: 'list', items: [
@@ -272,7 +272,7 @@ const DB = [
   },
   {
     id: 19, icon: '🧠', title: 'Mindset & Discipline Architecture',
-    hero: 'https://images.unsplash.com/photo-1499209974431-9dddcece7f88?w=1200&h=400&fit=crop',
+    heroQuery: 'focused athlete mindset',
     content: [
       { type: 'paragraph', text: 'Physical transformation is fundamentally anchored in mental architecture. The biology will respond to the stimulus without exception. What fails is the consistency of stimulus application. The mind must generate the stimulus daily, particularly when motivation is completely absent. Motivation is an emotion; it fluctuates hourly. Discipline is a structured system; it requires no emotional input.' },
       { type: 'list', items: [
@@ -302,7 +302,7 @@ const DB = [
   // ── New Reference Pages ──────────────────────────────────────────────────
   {
     id: 22, icon: '📏', title: 'Belly Fat Measurement Guide',
-    hero: 'https://images.unsplash.com/photo-1576678927484-cc907957088c?w=1200&h=400&fit=crop',
+    heroQuery: 'tape measure waist fitness',
     content: [
       { type: 'paragraph', text: '<strong>Why waist measurement beats the scale:</strong> Body weight fluctuates 1–3 kg daily from water, food, and glycogen. Waist circumference measured identically each month is a direct proxy for visceral fat reduction — the fat that matters most for health and longevity. A shrinking waist at stable or increasing weight is the definitive signature of successful recomposition.' },
       { type: 'paragraph', text: '<strong>Love handles vs visceral fat:</strong> Love handles (lateral hip fat) are primarily <em>subcutaneous</em> fat — the pinchable kind stored beneath the skin. While cosmetically unwanted, subcutaneous fat secretes beneficial adiponectin and is metabolically less dangerous. The real enemy is <em>visceral fat</em> — the deep intra-abdominal fat wrapping your organs. You cannot pinch visceral fat; you detect it through waist circumference. A large, firm, protruding belly that does not pinch easily signals high visceral fat load.' },
@@ -319,7 +319,7 @@ const DB = [
   },
   {
     id: 23, icon: '📋', title: 'Science Cheatsheet',
-    hero: 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=1200&h=400&fit=crop',
+    heroQuery: 'notebook science desk',
     content: [
       { type: 'paragraph', text: 'A dense, reference-grade cheatsheet of the most important principles. Zero fluff. Use this when someone questions the protocol, when motivation fades, or when you need to re-anchor to the science.' },
       { type: 'list', items: [
@@ -359,7 +359,7 @@ const DB = [
   },
   {
     id: 24, icon: '🌡️', title: 'Environment & Caloric Factors',
-    hero: 'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?w=1200&h=400&fit=crop',
+    heroQuery: 'hot humid weather sun',
     content: [
       { type: 'paragraph', text: 'Where you train determines how hard training is. Elevation, humidity, and temperature are invisible performance modifiers that directly affect oxygen availability, thermoregulation, caloric burn, and hydration requirements. Ignoring them means training blind.' },
       { type: 'paragraph', text: '<strong>Guatemala City at ~1,500m elevation</strong> sits precisely at the threshold where altitude begins affecting aerobic performance. The partial pressure of oxygen is ~83% of sea-level values. Borderline — not enough to cause severe altitude symptoms, but enough to notice faster breathing and an elevated HR at identical paces. After 10–14 days, EPO-driven acclimatization compensates. Athletes who then compete at sea level have a brief 10–15 day performance advantage.' },

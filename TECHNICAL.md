@@ -1,6 +1,6 @@
 # Technical Reference — Longevity Blueprint v3
 
-For the full folder map, database schema, and API surface, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — that is now the primary reference for the backend (`src/server/`). This file focuses on the frontend (Vue app, page content, theming) which is unchanged in structure from v2 aside from four new component files.
+For the full folder map, database schema, and API surface, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — that is now the primary reference for the backend (`src/server/`). This file focuses on the frontend (Vue app, page content, theming) which is unchanged in structure from v2 aside from five new component files.
 
 ## Architecture Overview
 
@@ -31,7 +31,8 @@ the-longevity-blueprint/
     │       ├── weekBuilder.js   # Drag-and-drop Week Training Builder
     │       ├── goalDashboard.js # Goal Dashboard (milestones)
     │       ├── dailyTracker.js  # Daily Exercise Tracker
-    │       └── aiAnalyzer.js    # OpenAI day/week/month analyzer panel
+    │       ├── aiAnalyzer.js    # OpenAI day/week/month analyzer panel
+    │       └── settingsPage.js  # Password, usage quotas, language, theme
     └── server/                  # Backend — see docs/ARCHITECTURE.md for the full map
         ├── db/                  # MySQL pool, schema.sql, setup.js
         ├── middleware/          # requireAuth
@@ -46,7 +47,7 @@ Scripts must load in this exact order. Each file depends on globals from the pre
 ```
 db.js → storage.js → app.js → calculators.js → charts.js
    → weekBuilder.js → goalDashboard.js → aiAnalyzer.js → dailyTracker.js
-   → app.mount('#app')
+   → settingsPage.js → app.mount('#app')
 ```
 
 `aiAnalyzer.js` loads before `dailyTracker.js` because `DailyTracker`'s template embeds `<ai-analyzer>` — Vue needs the child component already registered on `app`.
@@ -91,6 +92,8 @@ On server unreachable: `appState = 'error'` (shows instructions to run `npm star
 | `dotenv` | Loads `.env` |
 | `openai` | AI Analyzer (day/week/month) |
 | `pdfkit` | Week Builder PDF export |
+| `helmet` | Security response headers |
+| `express-rate-limit` | Login/register brute-force protection |
 
 ### Session
 
@@ -347,3 +350,4 @@ Loaded from `.env` via `dotenv` (see `.env.example`). Full list and purpose in [
 | `DB_HOST` / `DB_PORT` / `DB_USER` / `DB_PASSWORD` / `DB_NAME` | `localhost` / `3306` / `root` / `` / `longevity_blueprint` | MySQL connection |
 | `OPENAI_API_KEY` | — | Required for the AI Analyzer; server-side only |
 | `OPENAI_MODEL` | `gpt-4o-mini` | Vision-capable chat completions model |
+| `PEXELS_API_KEY` | — | Optional; hero images just don't render without it |

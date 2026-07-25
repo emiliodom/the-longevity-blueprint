@@ -70,6 +70,12 @@ const app = createApp({
       darkMode:   true,
       showHrHelp: false,
 
+      // ── Hero images (Pexels, see loadHeroImage/resolvedHero) ─────────────
+      // Keyed by heroQuery string, not page id — { url, photographer,
+      // pexelsUrl } once resolved, or null if unavailable (no key configured,
+      // no results, or the request failed — all treated as "no image").
+      heroImageCache: {},
+
       // ── Cross-component handoff (Goal Dashboard → Week Builder) ─────────
       // Set by goalDashboard.js's "Build Week from this Goal" button, read
       // and cleared by weekBuilder.js on mount. See both files for context.
@@ -80,6 +86,15 @@ const app = createApp({
   computed: {
     currentPage() {
       return DB.find(p => p.id === this.currentPageId) || DB[0];
+    },
+
+    // { url, photographer, pexelsUrl } once loadHeroImage() resolves it, or
+    // null both before it resolves and when no image is available — the
+    // template doesn't distinguish "loading" from "none", it just shows the
+    // plain title header until/unless a photo shows up.
+    resolvedHero() {
+      const q = this.currentPage.heroQuery;
+      return q ? (this.heroImageCache[q] || null) : null;
     },
 
     passwordStrength() {
@@ -287,6 +302,7 @@ const app = createApp({
         this.workoutLog = await Storage.getLog(id);
         this.appState   = 'app';
         this.newLog.date = new Date().toISOString().split('T')[0];
+        this.loadHeroImage();
       } catch (e) {
         console.error('Load profile failed:', e);
       }
@@ -349,12 +365,21 @@ const app = createApp({
     setPage(id) {
       this.currentPageId = id;
       this.sidebarOpen   = false;
+      this.loadHeroImage();
       this.$nextTick(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
         if (typeof MathJax !== 'undefined' && MathJax.typesetPromise) {
           MathJax.typesetPromise();
         }
       });
+    },
+
+    // ── Hero images ──────────────────────────────────────────────────────
+
+    async loadHeroImage() {
+      const q = this.currentPage.heroQuery;
+      if (!q || this.heroImageCache[q] !== undefined) return; // no query, or already cached (incl. a cached "no image")
+      this.heroImageCache[q] = await Storage.getHeroImage(q);
     },
 
     // ── Dashboard ────────────────────────────────────────────────────────
@@ -410,9 +435,9 @@ const app = createApp({
 
     // ── Utility ──────────────────────────────────────────────────────────
 
-    heroStyle(url) {
-      if (!url) return {};
-      return { backgroundImage: `url('${url}')` };
+    heroStyle(hero) {
+      if (!hero || !hero.url) return {};
+      return { backgroundImage: `url('${hero.url}')` };
     }
   }
 });
