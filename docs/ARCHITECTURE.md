@@ -21,7 +21,8 @@ src/
         ├── weekBuilder.js       — WeekBuilder: drag-and-drop week planner (SortableJS)
         ├── goalDashboard.js     — GoalDashboard: milestone CRUD + "Build Week" handoff
         ├── dailyTracker.js      — DailyTracker: Strava link + screenshots, embeds AiAnalyzer
-        └── aiAnalyzer.js        — AiAnalyzer: day/week/month OpenAI summary panel
+        ├── aiAnalyzer.js        — AiAnalyzer: day/week/month OpenAI summary panel
+        └── settingsPage.js      — SettingsPage: password, usage quotas, language, theme
 
 src/server/                       — backend, one small file per concern
 ├── db/
@@ -36,6 +37,7 @@ src/server/                       — backend, one small file per concern
 │   ├── autobuild.js                — deterministic rules engine: goal + week → suggested blocks
 │   ├── openai.js                   — OpenAI vision analyzer (server-side key, never sent to browser)
 │   ├── quota.js                    — durable per-account usage quotas (uploads, AI calls) — usage_events table
+│   ├── validation.js                — shared input validation (password policy)
 │   └── exporters/
 │       ├── shared.js               — date/sort helpers shared by all 3 exporters
 │       ├── csv.js                  — week → CSV text
@@ -43,7 +45,7 @@ src/server/                       — backend, one small file per concern
 │       └── pdf.js                  — week → PDF (pdfkit; renders onto a doc the route owns)
 └── routes/                        — one Express router per domain, each documents its own endpoints
     ├── auth.js                     — register/login/logout/me/avatar
-    ├── account.js                   — account-level: GET usage (quota status), + settings endpoints
+    ├── account.js                   — account-level: usage (quota status), change password, language preference
     ├── profiles.js                  — the "athlete" record CRUD (everything else hangs off profile_id)
     ├── dashboard.js                  — Daily Mission Control (one JSON blob per profile)
     ├── log.js                        — Exercise Journal (run/cycle/lift sessions)
@@ -132,7 +134,15 @@ Deterministic and rules-based — **not** an AI feature. Given a goal's `target_
 
 ## New pages (frontend)
 
-Week Builder / Goal Dashboard / Daily Tracker are page ids **25, 26, 27** in `src/js/db.js`, flagged `isTrainingBuilder` / `isGoals` / `isTracker` respectively — the same pattern as the existing `isDashboard` (page 20) / `isJournal` (page 21) pages. `index.html`'s main-content `v-else-if` chain and `app.js`'s generic top-bar PDF button (`exportPDF()` / `window.print()`) both exclude these three, since the Week Builder has its own server-rendered PDF/CSV/ICS export toolbar instead.
+Week Builder / Goal Dashboard / Daily Tracker / Settings are page ids **25, 26, 27, 28** in `src/js/db.js`, flagged `isTrainingBuilder` / `isGoals` / `isTracker` / `isSettings` respectively — the same pattern as the existing `isDashboard` (page 20) / `isJournal` (page 21) pages. `index.html`'s main-content `v-else-if` chain and `app.js`'s generic top-bar PDF button (`exportPDF()` / `window.print()`) both exclude all four, since the Week Builder has its own server-rendered PDF/CSV/ICS export toolbar instead and the other three don't need print export at all.
+
+## Settings page (settingsPage.js, routes/account.js)
+
+Three independent concerns, one page:
+- **Password change** — `PUT /api/account/password` requires `currentPassword` (bcrypt-verified) before accepting `newPassword`, which goes through the same policy check as registration (`src/server/lib/validation.js`'s `passwordPolicyError`, shared so the two can't drift apart).
+- **Usage display** — reads `GET /api/account/usage` (see the quota section above) and renders the same `.goal-progress-track`/`.goal-progress-fill` bars the Goal Dashboard uses.
+- **Language preference** — `PUT /api/account/preferences` persists `users.preferred_language` (added via an `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` in `schema.sql` — see the comment there for why new columns on an already-shipped table need that instead of just editing the `CREATE TABLE`). Persisting it is separate from *applying* it: clicking "Apply" also sets the `googtrans` cookie Google Translate reads on load and reloads the page. It is deliberately **not** auto-re-applied on every login — an unexpected forced reload on login would be a worse experience than asking once.
+- Theme toggle is also surfaced here for discoverability, but it's the same `darkMode`/`toggleTheme()` that already lived on the root instance (`$root.toggleTheme()`) — no new state.
 
 ---
 

@@ -317,6 +317,28 @@ const Storage = {
     return res.json();
   },
 
+  async changePassword(currentPassword, newPassword) {
+    const res  = await fetch('/api/account/password', {
+      method:  'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ currentPassword, newPassword })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to change password');
+    return data;
+  },
+
+  async updatePreferences(preferredLanguage) {
+    const res  = await fetch('/api/account/preferences', {
+      method:  'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ preferredLanguage })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to save preferences');
+    return data;
+  },
+
   // ── Health check ──────────────────────────────────────────────────────────
 
   async ping() {

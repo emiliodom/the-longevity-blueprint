@@ -8,12 +8,19 @@
 -- Safe to re-run: every statement is idempotent (CREATE TABLE IF NOT EXISTS).
 
 CREATE TABLE IF NOT EXISTS users (
-  id            VARCHAR(36)  PRIMARY KEY,
-  email         VARCHAR(255) NOT NULL UNIQUE,
-  password_hash VARCHAR(255) NOT NULL,
-  avatar        VARCHAR(255) NULL,
-  created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
+  id                 VARCHAR(36)  PRIMARY KEY,
+  email              VARCHAR(255) NOT NULL UNIQUE,
+  password_hash      VARCHAR(255) NOT NULL,
+  avatar             VARCHAR(255) NULL,
+  preferred_language VARCHAR(10)  NOT NULL DEFAULT 'en',
+  created_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Forward-migration pattern for columns added after a table already shipped:
+-- CREATE TABLE above is a no-op on an existing DB, so upgrade it in place.
+-- Safe to re-run (IF NOT EXISTS) — this is how existing installs pick up
+-- `preferred_language` without re-running the whole CREATE TABLE.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS preferred_language VARCHAR(10) NOT NULL DEFAULT 'en';
 
 CREATE TABLE IF NOT EXISTS profiles (
   id          VARCHAR(36)  PRIMARY KEY,

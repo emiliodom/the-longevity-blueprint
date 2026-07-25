@@ -394,6 +394,13 @@ const DB = [
     content: [
       { type: 'paragraph', text: 'Log today\'s Strava link, notes, and screenshots, then run the AI analyzer for a day, week, or month summary — powered by OpenAI, reading both your logged data and any attached screenshots.' }
     ]
+  },
+  {
+    id: 28, icon: '⚙️', title: 'Settings',
+    isSettings: true, hero: '',
+    content: [
+      { type: 'paragraph', text: 'Manage your password, see your current daily upload/AI usage against the account-wide limits, and set your preferred language and theme.' }
+    ]
   }
 ];
 
@@ -404,5 +411,6 @@ const NAV_GROUPS = [
   { label: 'Health',           pages: DB.filter(p => [16,17,18,19,22].includes(p.id)) },
   { label: 'Reference',        pages: DB.filter(p => [23,24].includes(p.id)) },
   { label: 'System',           pages: DB.filter(p => [20,21].includes(p.id)) },
-  { label: 'Training Builder', pages: DB.filter(p => [25,26,27].includes(p.id)) }
+  { label: 'Training Builder', pages: DB.filter(p => [25,26,27].includes(p.id)) },
+  { label: 'Account',          pages: DB.filter(p => [28].includes(p.id)) }
 ];

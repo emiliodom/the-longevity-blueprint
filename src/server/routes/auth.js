@@ -16,9 +16,10 @@ const fs       = require('fs');
 const path     = require('path');
 const crypto   = require('crypto');
 
-const { query }        = require('../db/pool');
-const { requireAuth }  = require('../middleware/auth');
-const { authLimiter }  = require('../middleware/rateLimit');
+const { query }              = require('../db/pool');
+const { requireAuth }        = require('../middleware/auth');
+const { authLimiter }        = require('../middleware/rateLimit');
+const { passwordPolicyError } = require('../lib/validation');
 
 const router = express.Router();
 
@@ -45,7 +46,7 @@ const upload = multer({
 });
 
 function toPublicUser(row) {
-  return { id: row.id, email: row.email, avatar: row.avatar || null };
+  return { id: row.id, email: row.email, avatar: row.avatar || null, preferredLanguage: row.preferred_language || 'en' };
 }
 
 // ── Register ─────────────────────────────────────────────────────────────
@@ -59,10 +60,8 @@ router.post('/register', authLimiter, async (req, res) => {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailLower))
     return res.status(400).json({ error: 'Invalid email address' });
 
-  if (password.length < 8 || !/[A-Z]/.test(password) || !/[0-9]/.test(password))
-    return res.status(400).json({
-      error: 'Password must be at least 8 characters with 1 uppercase letter and 1 number'
-    });
+  const pwError = passwordPolicyError(password);
+  if (pwError) return res.status(400).json({ error: pwError });
 
   const existing = await query('SELECT id FROM users WHERE email = ?', [emailLower]);
   if (existing.length)
@@ -76,7 +75,7 @@ router.post('/register', authLimiter, async (req, res) => {
   );
 
   req.session.userId = id;
-  res.status(201).json({ id, email: emailLower, avatar: null });
+  res.status(201).json({ id, email: emailLower, avatar: null, preferredLanguage: 'en' });
 });
 
 // ── Login ────────────────────────────────────────────────────────────────
