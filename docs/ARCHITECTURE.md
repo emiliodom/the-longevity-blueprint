@@ -29,11 +29,13 @@ src/server/                       — backend, one small file per concern
 │   ├── schema.sql                — every CREATE TABLE (idempotent — IF NOT EXISTS)
 │   └── setup.js                  — `npm run db:setup`: creates the DB + applies schema.sql
 ├── middleware/
-│   └── auth.js                   — requireAuth (session check only; ownership checked per-route)
+│   ├── auth.js                    — requireAuth (session check only; ownership checked per-route)
+│   └── rateLimit.js                — authLimiter (in-memory, login/register brute-force protection)
 ├── lib/
 │   ├── templates.js               — GOAL_TEMPLATES / BLOCK_TEMPLATES (static content, not user data)
 │   ├── autobuild.js                — deterministic rules engine: goal + week → suggested blocks
 │   ├── openai.js                   — OpenAI vision analyzer (server-side key, never sent to browser)
+│   ├── quota.js                    — durable per-account usage quotas (uploads, AI calls) — usage_events table
 │   └── exporters/
 │       ├── shared.js               — date/sort helpers shared by all 3 exporters
 │       ├── csv.js                  — week → CSV text
@@ -41,6 +43,7 @@ src/server/                       — backend, one small file per concern
 │       └── pdf.js                  — week → PDF (pdfkit; renders onto a doc the route owns)
 └── routes/                        — one Express router per domain, each documents its own endpoints
     ├── auth.js                     — register/login/logout/me/avatar
+    ├── account.js                   — account-level: GET usage (quota status), + settings endpoints
     ├── profiles.js                  — the "athlete" record CRUD (everything else hangs off profile_id)
     ├── dashboard.js                  — Daily Mission Control (one JSON blob per profile)
     ├── log.js                        — Exercise Journal (run/cycle/lift sessions)
@@ -140,6 +143,10 @@ Week Builder / Goal Dashboard / Daily Tracker are page ids **25, 26, 27** in `sr
 - **Session cookie**: `httpOnly`, `sameSite: 'lax'` (cross-site POSTs won't carry the cookie — the app's CSRF mitigation, chosen over full CSRF tokens as proportionate to this app's scope), `secure` gated on `NODE_ENV=production` (requires `NODE_ENV=production` to be set in the real deployment, or the cookie won't require HTTPS).
 - **`app.set('trust proxy', 1)`** — required for both the `secure` cookie check and rate-limit IP detection to work correctly behind Hostinger's reverse proxy.
 - **Auth rate limiting** (`src/server/middleware/rateLimit.js`, `authLimiter`): 20 requests / 15 min per IP on `/api/auth/register` and `/api/auth/login`, in-memory (express-rate-limit) — resetting on restart is an accepted trade-off here (see the file's header comment for why this is different from the upload/AI quotas, below).
+- **Per-account usage quotas** ("wall it so no one exhausts the app"), `src/server/lib/quota.js` + the `usage_events` table: 60 screenshot uploads and 30 real AI-analyzer calls per rolling 24h, per account — durable (DB-backed, survives restarts) unlike the auth limiter above, and with **no bypass for any account**, including the deployer's own.
+  - Screenshot uploads: checked in `routes/tracker.js` after multer has written the batch to disk (file count isn't known until the multipart body is parsed) — if the batch would exceed quota, the just-written files are deleted and the request is rejected with 429, so nothing is orphaned on disk.
+  - AI analysis: checked in `routes/ai.js` only once a cache-miss/`regenerate` is about to trigger a real OpenAI call — viewing an already-cached period is always free and never counts against the quota.
+  - `GET /api/account/usage` (`routes/account.js`) reports current usage/limit for both, surfaced in the Settings page.
 - **Ownership checks**: every profile-scoped route (`dashboard.js`, `log.js`, `goals.js`, `training.js`, `tracker.js`, `ai.js`) re-verifies `profile.user_id === session.userId` before reading or writing anything — `requireAuth` only proves *a* session exists, not that it owns the resource in the URL.
 - **SQL**: always parameterized (`?` placeholders) — the one exception is `DB_NAME` interpolated into `CREATE DATABASE IF NOT EXISTS` in `setup.js`, which is an operator-set deployment value from `.env`, not user input.
 - **Uploads**: filenames are always server-generated (`crypto.randomUUID()` + the original extension only), never the client-supplied filename directly — avoids path traversal via a crafted `originalname`. MIME type is checked (not just extension); size and file-count are capped per request. Uploaded files are served statically without an auth check — anyone with the exact (UUID-based, unguessable) URL can view them; this is a deliberate scope trade-off, not an oversight.

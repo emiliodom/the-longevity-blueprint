@@ -309,6 +309,14 @@ const Storage = {
     return data;
   },
 
+  // ── Account (usage quotas, settings) ────────────────────────────────────
+
+  async getUsage() {
+    const res = await fetch('/api/account/usage');
+    if (!res.ok) return null;
+    return res.json();
+  },
+
   // ── Health check ──────────────────────────────────────────────────────────
 
   async ping() {

@@ -119,6 +119,21 @@ CREATE TABLE IF NOT EXISTS tracker_screenshots (
   INDEX idx_screenshots_tracker (tracker_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Per-account usage quotas ("wall it so no one exhausts the app") — one row
+-- per actual attempt (a screenshot uploaded, a real OpenAI call made). See
+-- src/server/lib/quota.js. Deliberately a durable DB table, not an in-memory
+-- counter — an in-memory quota would reset on every restart/redeploy, which
+-- defeats the point of a hard daily ceiling. Applies to every account, with
+-- no bypass for any user.
+CREATE TABLE IF NOT EXISTS usage_events (
+  id         VARCHAR(36) PRIMARY KEY,
+  user_id    VARCHAR(36) NOT NULL,
+  kind       VARCHAR(32) NOT NULL,  -- screenshot_upload | ai_analyze
+  created_at DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_usage_events_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_usage_events_lookup (user_id, kind, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- OpenAI day/week/month analyzer — cached so repeat views don't re-spend API credits
 CREATE TABLE IF NOT EXISTS ai_analyses (
   id            VARCHAR(36) PRIMARY KEY,

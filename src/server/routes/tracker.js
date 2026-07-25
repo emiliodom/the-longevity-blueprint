@@ -17,8 +17,9 @@ const fs      = require('fs');
 const path    = require('path');
 const crypto  = require('crypto');
 
-const { query }       = require('../db/pool');
-const { requireAuth } = require('../middleware/auth');
+const { query }                     = require('../db/pool');
+const { requireAuth }               = require('../middleware/auth');
+const { getQuotaStatus, recordUsage } = require('../lib/quota');
 
 const router = express.Router({ mergeParams: true });
 router.use(requireAuth);
@@ -88,9 +89,24 @@ router.put('/:date', async (req, res) => {
 });
 
 router.post('/:date/screenshots', upload.array('screenshots', 10), async (req, res) => {
-  if (!(await assertOwnsProfile(req.params.id, req.session.userId)))
+  if (!(await assertOwnsProfile(req.params.id, req.session.userId))) {
+    (req.files || []).forEach(f => { try { fs.unlinkSync(f.path); } catch { /* best-effort cleanup */ } });
     return res.status(404).json({ error: 'Profile not found' });
+  }
   if (!req.files || !req.files.length) return res.status(400).json({ error: 'No files uploaded' });
+
+  // Quota check happens after multer has already written the files to disk
+  // (we don't know the file count until the multipart body is parsed) — if
+  // this batch would exceed the daily cap, delete them and reject instead
+  // of silently keeping orphaned uploads.
+  const quota = await getQuotaStatus(req.session.userId, 'screenshot_upload', req.files.length);
+  if (!quota.allowed) {
+    req.files.forEach(f => { try { fs.unlinkSync(f.path); } catch { /* best-effort cleanup */ } });
+    return res.status(429).json({
+      error: `Daily screenshot upload limit reached (${quota.used}/${quota.limit} in the last ${quota.windowHours}h). Try again later.`,
+      ...quota
+    });
+  }
 
   let trackerRows = await query('SELECT id FROM daily_trackers WHERE profile_id = ? AND date = ?', [req.params.id, req.params.date]);
   let trackerId;
@@ -108,6 +124,7 @@ router.post('/:date/screenshots', upload.array('screenshots', 10), async (req, r
       [crypto.randomUUID(), trackerId, publicPath]
     );
   }
+  await recordUsage(req.session.userId, 'screenshot_upload', req.files.length);
 
   res.status(201).json(await loadTracker(req.params.id, req.params.date));
 });

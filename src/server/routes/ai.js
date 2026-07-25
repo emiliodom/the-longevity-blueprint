@@ -13,9 +13,10 @@ const express = require('express');
 const path    = require('path');
 const crypto  = require('crypto');
 
-const { query }       = require('../db/pool');
-const { requireAuth } = require('../middleware/auth');
-const { analyze }     = require('../lib/openai');
+const { query }                     = require('../db/pool');
+const { requireAuth }               = require('../middleware/auth');
+const { analyze }                   = require('../lib/openai');
+const { getQuotaStatus, recordUsage } = require('../lib/quota');
 
 const router = express.Router({ mergeParams: true });
 router.use(requireAuth);
@@ -73,6 +74,16 @@ router.post('/analyze', async (req, res) => {
     }
   }
 
+  // Only counts against the quota once we're actually about to spend an
+  // OpenAI call — cached reads above already returned and never reach here.
+  const quota = await getQuotaStatus(req.session.userId, 'ai_analyze');
+  if (!quota.allowed) {
+    return res.status(429).json({
+      error: `Daily AI analysis limit reached (${quota.used}/${quota.limit} in the last ${quota.windowHours}h). Try again later.`,
+      ...quota
+    });
+  }
+
   try {
     const logs = await query(
       'SELECT * FROM workout_logs WHERE profile_id = ? AND date BETWEEN ? AND ? ORDER BY date ASC',
@@ -102,6 +113,7 @@ router.post('/analyze', async (req, res) => {
        ON DUPLICATE KEY UPDATE summary = VALUES(summary), raw_response = VALUES(raw_response), created_at = CURRENT_TIMESTAMP`,
       [id, req.params.id, scope, period.start, period.end, result.summary, JSON.stringify(result.raw)]
     );
+    await recordUsage(req.session.userId, 'ai_analyze');
 
     res.json({ summary: result.summary, periodStart: period.start, periodEnd: period.end, cached: false });
   } catch (err) {
