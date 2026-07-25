@@ -1,33 +1,42 @@
-# Technical Reference — Longevity Blueprint v2
+# Technical Reference — Longevity Blueprint v3
+
+For the full folder map, database schema, and API surface, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — that is now the primary reference for the backend (`src/server/`). This file focuses on the frontend (Vue app, page content, theming) which is unchanged in structure from v2 aside from four new component files.
 
 ## Architecture Overview
 
 ```
-training-plan/
+the-longevity-blueprint/
 ├── index.html                   # HTML template only — no inline JS or CSS
-├── server.js                    # Express REST API + auth + static file serving
+├── server.js                    # Express bootstrap only — mounts routers from src/server/
 ├── package.json
+├── .env / .env.example          # MySQL + OpenAI + session config (see docs/ARCHITECTURE.md)
 ├── .gitignore
 ├── README.md
 ├── TECHNICAL.md
 ├── SCIENCE.md                   # Primary citations for all formulas
-├── data/                        # Runtime database files (auto-created, gitignored)
-│   ├── users.json               # User accounts (hashed passwords, avatar paths)
-│   ├── profiles.json            # Biometric profiles (scoped by userId)
-│   ├── dashboards.json          # Dashboard state keyed by profileId
-│   └── logs.json                # Workout log entries keyed by profileId
-├── uploads/
-│   └── avatars/                 # Uploaded profile photos (gitignored)
+├── docs/
+│   ├── ARCHITECTURE.md          # Full backend folder map, schema, API surface
+│   └── DEPLOYMENT.md            # Hostinger Node.js app setup
+├── uploads/                     # Avatars + tracker screenshots (gitignored)
 └── src/
     ├── css/
     │   └── style.css            # All custom CSS + CSS custom properties for theming
-    └── js/
-        ├── db.js                # Page content database (DB array + NAV_GROUPS)
-        ├── storage.js           # Async REST API client (auth + data methods)
-        ├── app.js               # Vue 3 app — createApp() without mount()
-        └── components/
-            ├── calculators.js   # 9 calculator Vue components
-            └── charts.js        # BarChart + DonutChart Vue components
+    ├── js/                      # Frontend — Vue 3 via CDN, no build step
+    │   ├── db.js                # Page content database (DB array + NAV_GROUPS)
+    │   ├── storage.js           # Async REST API client (auth + data methods)
+    │   ├── app.js               # Vue 3 app — createApp() without mount()
+    │   └── components/
+    │       ├── calculators.js   # 9 calculator Vue components
+    │       ├── charts.js        # BarChart + DonutChart Vue components
+    │       ├── weekBuilder.js   # Drag-and-drop Week Training Builder
+    │       ├── goalDashboard.js # Goal Dashboard (milestones)
+    │       ├── dailyTracker.js  # Daily Exercise Tracker
+    │       └── aiAnalyzer.js    # OpenAI day/week/month analyzer panel
+    └── server/                  # Backend — see docs/ARCHITECTURE.md for the full map
+        ├── db/                  # MySQL pool, schema.sql, setup.js
+        ├── middleware/          # requireAuth
+        ├── lib/                 # templates, autobuild rules, OpenAI client, exporters
+        └── routes/              # one Express router per domain
 ```
 
 ### Script Load Order (index.html)
@@ -35,8 +44,12 @@ training-plan/
 Scripts must load in this exact order. Each file depends on globals from the previous:
 
 ```
-db.js → storage.js → app.js → calculators.js → charts.js → app.mount('#app')
+db.js → storage.js → app.js → calculators.js → charts.js
+   → weekBuilder.js → goalDashboard.js → aiAnalyzer.js → dailyTracker.js
+   → app.mount('#app')
 ```
+
+`aiAnalyzer.js` loads before `dailyTracker.js` because `DailyTracker`'s template embeds `<ai-analyzer>` — Vue needs the child component already registered on `app`.
 
 `app.js` creates the Vue app as the global `app` but does **not** call `.mount()`.  
 `calculators.js` and `charts.js` call `app.component(...)` to register components.  
@@ -68,11 +81,16 @@ On server unreachable: `appState = 'error'` (shows instructions to run `npm star
 
 ### Packages
 
-| Package | Version | Purpose |
-|---|---|---|
-| `bcryptjs` | ^2.4.3 | Password hashing (12 salt rounds) |
-| `express-session` | ^1.17.3 | Server-side session management |
-| `multer` | ^1.4.5-lts.1 | Multipart file upload for avatars |
+| Package | Purpose |
+|---|---|
+| `bcryptjs` | Password hashing (12 salt rounds) |
+| `express-session` | Server-side session management |
+| `express-async-errors` | Forwards rejected promises in async route handlers to Express's error middleware (required — Express 4 doesn't do this natively; see `docs/ARCHITECTURE.md`) |
+| `multer` | Multipart file upload (avatars + tracker screenshots) |
+| `mysql2` | MySQL connection pool + queries |
+| `dotenv` | Loads `.env` |
+| `openai` | AI Analyzer (day/week/month) |
+| `pdfkit` | Week Builder PDF export |
 
 ### Session
 
@@ -100,115 +118,30 @@ Enforced on both client (checklist + strength bar) and server (validation before
 
 ---
 
-## REST API Reference
+## REST API Reference & Database Schema
 
-Base URL: `http://localhost:3000`
+Both moved to [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — every route file in `src/server/routes/` documents its own endpoints in a header comment, and `src/server/db/schema.sql` is the authoritative schema. Keeping one copy avoids this file and that one drifting apart.
 
-All endpoints except health, register, and login require an active session (authenticated).
+IDs are `crypto.randomUUID()` strings generated app-side (not `AUTO_INCREMENT`) — see "IDs" in `docs/ARCHITECTURE.md` for why.
 
-### Health
-
-| Method | Path | Auth | Response |
-|---|---|---|---|
-| GET | `/api/health` | No | `{ ok: true }` |
-
-### Auth
-
-| Method | Path | Auth | Body | Response |
-|---|---|---|---|---|
-| POST | `/api/auth/register` | No | `{ email, password }` | `{ id, email, avatar }` + sets session |
-| POST | `/api/auth/login` | No | `{ email, password }` | `{ id, email, avatar }` + sets session |
-| POST | `/api/auth/logout` | No | — | `{ ok: true }` + destroys session |
-| GET | `/api/auth/me` | Yes | — | `{ id, email, avatar }` or 401 |
-| POST | `/api/auth/avatar` | Yes | `multipart/form-data` field `avatar` | `{ avatar: '/uploads/avatars/...' }` |
-
-### Profiles (scoped to session user)
-
-| Method | Path | Body | Response |
-|---|---|---|---|
-| GET | `/api/profiles` | — | `Profile[]` (current user only) |
-| POST | `/api/profiles` | Profile fields | Created `Profile` (auto `id`, `userId`, `createdAt`) |
-| GET | `/api/profiles/:id` | — | `Profile` or 404 |
-| PUT | `/api/profiles/:id` | Partial profile | Updated `Profile` |
-| DELETE | `/api/profiles/:id` | — | `{ ok: true }` — also deletes dashboard + log |
-
-### Dashboard
-
-| Method | Path | Body | Response |
-|---|---|---|---|
-| GET | `/api/profiles/:id/dashboard` | — | Dashboard object or `null` |
-| PUT | `/api/profiles/:id/dashboard` | Dashboard object | Saved dashboard |
-
-### Workout Log
-
-| Method | Path | Body | Response |
-|---|---|---|---|
-| GET | `/api/profiles/:id/log` | — | `LogEntry[]` (newest first) |
-| POST | `/api/profiles/:id/log` | Log entry fields | Full updated `LogEntry[]` |
-| DELETE | `/api/profiles/:id/log/:entryId` | — | Full updated `LogEntry[]` |
-
----
-
-## Database Schema (Split JSON Files)
-
-### data/users.json — `User[]`
-
-```typescript
-interface User {
-  id:           string;   // Date.now().toString()
-  email:        string;   // lowercase
-  passwordHash: string;   // bcryptjs hash, 12 rounds
-  avatar:       string | null;  // '/uploads/avatars/...' or null
-  createdAt:    string;   // ISO 8601
-}
-```
-
-### data/profiles.json — `Profile[]`
+Quick shape reference for the original v2 entities (unchanged since the MySQL migration, now backed by the `profiles`/`dashboards`/`workout_logs` tables instead of JSON files):
 
 ```typescript
 interface Profile {
-  id:        string;   // Date.now().toString()
-  userId:    string;   // FK → User.id
-  createdAt: string;   // ISO 8601
-  name:      string;
-  age:       number;
-  weight:    number;   // kg
-  height:    number;   // cm
-  gender:    'male' | 'female';
-  restingHr: number;   // bpm (awake, seated)
-  maxHr:     number;   // bpm
+  id: string; userId: string; createdAt: string;
+  name: string; age: number; weight: number /* kg */; height: number /* cm */;
+  gender: 'male' | 'female'; restingHr: number; maxHr: number;
 }
-```
 
-### data/dashboards.json — `Record<profileId, Dashboard>`
-
-```typescript
 interface Dashboard {
-  calories:  number;
-  protein:   number;
-  water:     number;
-  sleep:     number;
-  fasted5k:  boolean;
-  suppDone:  boolean;
-  liftDone:  boolean;
-  rideDone:  boolean;
-  heelDone:  boolean;
-  sleepDone: boolean;
-  notes:     string;
+  calories: number; protein: number; water: number; sleep: number;
+  fasted5k: boolean; suppDone: boolean; liftDone: boolean;
+  rideDone: boolean; heelDone: boolean; sleepDone: boolean; notes: string;
 }
-```
 
-### data/logs.json — `Record<profileId, LogEntry[]>`
-
-```typescript
 interface LogEntry {
-  id:        string;              // Date.now().toString()
-  type:      'run' | 'cycle' | 'lift';
-  date:      string;              // YYYY-MM-DD
-  duration:  string;              // minutes
-  distance?: string;              // km (run/cycle)
-  weight?:   string;              // kg (lift)
-  reps?:     string;              // lift
+  id: string; type: 'run' | 'cycle' | 'lift'; date: string /* YYYY-MM-DD */;
+  duration: string; distance?: string; weight?: string; reps?: string;
   notes?:    string;
 }
 ```
@@ -395,12 +328,22 @@ Theme is toggled via `toggleTheme()` and persisted as `bp_theme` in localStorage
 | `.avatar-placeholder` | Emoji fallback when no avatar |
 | `.avatar-upload-btn` | Small "Change photo" button |
 | `.translate-wrap` | Google Translate widget container |
+| `.palette-item` / `.block-card` | Week Builder draggable template / placed block |
+| `.day-column` / `.day-column-list` | Week Builder's 7-day board columns |
+| `.goal-card` / `.goal-progress-track` / `.goal-progress-fill` | Goal Dashboard card + progress bar |
+| `.screenshot-thumb` | Daily Tracker screenshot thumbnail |
+| `.ai-summary` | AI Analyzer result panel |
 
 ---
 
 ## Environment Variables
 
+Loaded from `.env` via `dotenv` (see `.env.example`). Full list and purpose in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#environment-variables):
+
 | Variable | Default | Description |
 |---|---|---|
 | `PORT` | `3000` | HTTP server port |
 | `SESSION_SECRET` | `bp-longevity-secret-2024` | express-session secret key (change in production) |
+| `DB_HOST` / `DB_PORT` / `DB_USER` / `DB_PASSWORD` / `DB_NAME` | `localhost` / `3306` / `root` / `` / `longevity_blueprint` | MySQL connection |
+| `OPENAI_API_KEY` | — | Required for the AI Analyzer; server-side only |
+| `OPENAI_MODEL` | `gpt-4o-mini` | Vision-capable chat completions model |

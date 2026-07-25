@@ -7,8 +7,9 @@ A science-backed longevity and body recomposition dashboard for the developer-at
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) v16 or later
+- [Node.js](https://nodejs.org/) v18 or later
 - npm (included with Node.js)
+- A MySQL (or MariaDB) server, local or remote
 
 ---
 
@@ -16,10 +17,18 @@ A science-backed longevity and body recomposition dashboard for the developer-at
 
 ```bash
 # 1. Clone or download the project
-cd training-plan
+cd the-longevity-blueprint
 
-# 2. Install dependencies (Express + bcryptjs + express-session + multer)
+# 2. Install dependencies
 npm install
+
+# 3. Configure environment
+cp .env.example .env
+# edit .env: DB_HOST / DB_PORT / DB_USER / DB_PASSWORD / DB_NAME,
+# SESSION_SECRET, and (optional but needed for the AI Analyzer) OPENAI_API_KEY
+
+# 4. Create the database schema (safe to re-run any time)
+npm run db:setup
 ```
 
 ---
@@ -36,7 +45,7 @@ npm start
 
 Then open **http://localhost:3000** in your browser.
 
-> Data files are created automatically under `data/` on first run.
+Deploying to Hostinger (or swapping in different MySQL credentials for production) — see [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md). For the full folder map and API surface, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ---
 
@@ -124,6 +133,20 @@ Allowed formats: **JPEG, PNG, WebP, GIF** · Maximum size: **2 MB**
 - 6-item protocol checklist with toggle checkboxes
 - Daily notes with auto-save (500 ms debounce)
 
+### Week Training Builder
+- Drag-and-drop weekly planner (Monday–Sunday), palette of Running / Weight Training / Cycling / Stretching blocks
+- **Auto-Build**: generates a full week from an active goal's target date (e.g. a 4/30 milestone 5K) using a deterministic rules engine — daily Zone 2 running, alternating upper/lower barbell days, an interval-to-tempo progression as race day nears, a long Sunday ride, and daily heel-rehab mobility
+- Export the week as **PDF**, **CSV**, or an **.ics calendar file** (import into Google/Apple/Outlook calendars)
+
+### Goal Dashboard
+- Track milestones (race times, weight targets, lift PRs, ride distances) with target dates and progress
+- Start from a built-in template (5K, 10K, Half Marathon, Weight Target, Lift PR, Century Ride) or a custom goal
+- "Build Week from this Goal" jumps straight into the Week Builder with a plan generated around it
+
+### Daily Tracker + AI Analyzer
+- Log a Strava activity link, notes, and upload screenshots (Strava/insights/wearable summaries) per day
+- **AI Analyzer** (OpenAI, server-side key): day / week / month analysis that reads both your logged data and the screenshots themselves (vision model), with results cached so re-viewing a period doesn't re-spend API credits
+
 ### Multi-Profile Support
 - Create unlimited profiles per account (e.g. different training phases)
 - All profile data is isolated to your account — other users cannot see it
@@ -131,8 +154,8 @@ Allowed formats: **JPEG, PNG, WebP, GIF** · Maximum size: **2 MB**
 
 ### UI Features
 - **Dark / Light mode** — persisted in localStorage
-- **Google Translate** widget — EN ↔ ES and more
-- **PDF export** — browser print dialog for any calculator page
+- **Google Translate** widget — English, Spanish, French, German, Portuguese, Italian, Chinese, Japanese, Korean, Arabic, Hindi, Russian
+- **PDF export** — browser print dialog for any calculator page (the Week Builder has its own server-rendered PDF/CSV/ICS export instead)
 - **Avatar upload** — personal photo shown in sidebar and profile selector
 
 ---
@@ -148,16 +171,9 @@ Allowed formats: **JPEG, PNG, WebP, GIF** · Maximum size: **2 MB**
 
 ## Data Storage
 
-Data is split into four JSON files under `data/` (auto-created, gitignored):
+All data lives in **MySQL** (see `src/server/db/schema.sql` for the full schema — users, profiles, dashboards, workout logs, goals, training weeks/blocks, daily trackers/screenshots, and cached AI analyses). This replaced the earlier flat-JSON-file storage specifically so data survives redeploys on hosts with an ephemeral filesystem — see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the table map.
 
-| File | Contents |
-|---|---|
-| `data/users.json` | Email, bcrypt password hash, avatar path |
-| `data/profiles.json` | Biometric profiles (each linked to a `userId`) |
-| `data/dashboards.json` | Dashboard state per profile ID |
-| `data/logs.json` | Workout log entries per profile ID |
-
-Avatar images are stored under `uploads/avatars/` (also gitignored).
+Avatar images and tracker screenshots are stored under `uploads/` (gitignored) — file paths are recorded in MySQL, the files themselves stay on disk.
 
 The browser stores only the active profile ID in `localStorage` (`bp_active_profile`).
 

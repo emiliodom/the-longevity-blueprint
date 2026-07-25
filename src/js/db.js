@@ -372,14 +372,37 @@ const DB = [
       { type: 'calculator', component: 'EnvCalc' },
       { type: 'paragraph', text: '<strong>Seasonal training plan:</strong> Dry season (November–April) = optimal for hard training blocks (lower humidity, consistent performance). Rainy season (May–October) = base building, technique, Zone 1–2 focus. Never compare split times across seasons without adjusting for heat index.' }
     ]
+  },
+  // ── Training Builder Pages ───────────────────────────────────────────────
+  {
+    id: 25, icon: '🗓️', title: 'Week Builder',
+    isTrainingBuilder: true, hero: '',
+    content: [
+      { type: 'paragraph', text: 'Drag activity blocks from the palette onto any day to build your week. Link a goal below to auto-build a full week around its target date, then export as PDF, CSV, or an .ics calendar file.' }
+    ]
+  },
+  {
+    id: 26, icon: '🎯', title: 'Goal Dashboard',
+    isGoals: true, hero: '',
+    content: [
+      { type: 'paragraph', text: 'Track milestones — races, weight targets, lift PRs — and jump straight into the Week Builder with a plan generated around any goal\'s target date.' }
+    ]
+  },
+  {
+    id: 27, icon: '📸', title: 'Daily Tracker',
+    isTracker: true, hero: '',
+    content: [
+      { type: 'paragraph', text: 'Log today\'s Strava link, notes, and screenshots, then run the AI analyzer for a day, week, or month summary — powered by OpenAI, reading both your logged data and any attached screenshots.' }
+    ]
   }
 ];
 
 const NAV_GROUPS = [
-  { label: 'Framework',  pages: DB.filter(p => [1,2,3,4].includes(p.id)) },
-  { label: 'Nutrition',  pages: DB.filter(p => [5,6,7,8].includes(p.id)) },
-  { label: 'Training',   pages: DB.filter(p => p.id >= 9 && p.id <= 15) },
-  { label: 'Health',     pages: DB.filter(p => [16,17,18,19,22].includes(p.id)) },
-  { label: 'Reference',  pages: DB.filter(p => [23,24].includes(p.id)) },
-  { label: 'System',     pages: DB.filter(p => [20,21].includes(p.id)) }
+  { label: 'Framework',        pages: DB.filter(p => [1,2,3,4].includes(p.id)) },
+  { label: 'Nutrition',        pages: DB.filter(p => [5,6,7,8].includes(p.id)) },
+  { label: 'Training',         pages: DB.filter(p => p.id >= 9 && p.id <= 15) },
+  { label: 'Health',           pages: DB.filter(p => [16,17,18,19,22].includes(p.id)) },
+  { label: 'Reference',        pages: DB.filter(p => [23,24].includes(p.id)) },
+  { label: 'System',           pages: DB.filter(p => [20,21].includes(p.id)) },
+  { label: 'Training Builder', pages: DB.filter(p => [25,26,27].includes(p.id)) }
 ];

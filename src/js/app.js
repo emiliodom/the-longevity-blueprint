@@ -68,7 +68,12 @@ const app = createApp({
       // ── UI ─────────────────────────────────────────────────────────────
       DB,
       darkMode:   true,
-      showHrHelp: false
+      showHrHelp: false,
+
+      // ── Cross-component handoff (Goal Dashboard → Week Builder) ─────────
+      // Set by goalDashboard.js's "Build Week from this Goal" button, read
+      // and cleared by weekBuilder.js on mount. See both files for context.
+      pendingAutobuildGoalId: null
     };
   },
 
