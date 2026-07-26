@@ -91,6 +91,10 @@ MySQL/MariaDB `DATE` columns (`target_date`, `week_start_date`, `period_start`, 
 
 Bind JSON columns (`dashboards.data`, `training_blocks.details`, `ai_analyses.raw_response`) as a plain `JSON.stringify(...)` string parameter — **do not** wrap it in `CAST(? AS JSON)`. MySQL supports that cast; MariaDB does not (its `JSON` type is a `LONGTEXT` alias with a check constraint), and using it will throw `ER_PARSE_ERROR` at runtime, not at authoring time. A bound string parameter works on both.
 
+## Optional numeric/date fields from forms
+
+A blank number/date input bound with `v-model`/`v-model.number` sends `''` (empty string), not `null` — Vue only coerces to a number on successful parse. `?? null` does **not** catch this (`'' ?? null` is still `''`), and MySQL's `DECIMAL`/`DATE` columns reject an empty string outright (`ER_TRUNCATED_WRONG_VALUE_FOR_FIELD`) rather than treating it as `NULL`. Any route binding an optional numeric/date field from `req.body` must run it through `blankToNull()` in `src/server/lib/validation.js` first — see `routes/goals.js` and `routes/profiles.js` for the pattern. This one was found by clicking through the Goal Dashboard in a real browser (creating a goal from a template with no target value) — the equivalent `curl` tests never hit it because they always either omitted the field or passed a real number.
+
 ## Async errors
 
 `server.js` requires `express-async-errors` immediately after `express` — this patches Express 4 (which does not natively catch rejected promises in `async` route handlers) to forward them to the error-handling middleware at the bottom of `server.js` instead of crashing the whole process. Every route handler in `src/server/routes/` is `async` and relies on this; don't remove the require.
@@ -118,7 +122,11 @@ Goal/block **templates** (5K, weight target, Zone 2 run, Workout A/B, etc.) are 
 
 ## Week Builder drag-and-drop (weekBuilder.js)
 
-SortableJS (CDN, loaded in `index.html`'s `<head>`) drives drag-and-drop. Sync strategy: **every** drag operation (drop from palette, move to another day, reorder within a day) calls the relevant API endpoint, then reloads the entire week from the server and re-initializes all Sortable instances (`initSortables()` destroys and recreates them). This trades a small UI flash for never having Vue's virtual DOM and Sortable's direct DOM manipulation fight over list order — there is exactly one source of truth (the server) at all times.
+SortableJS (CDN, loaded in `index.html`'s `<head>`) drives drag-and-drop, with `forceFallback: true` — pointer-based dragging instead of the browser's native HTML5 DnD, chosen after browser-automation testing surfaced that native DnD cannot be reliably driven by any synthetic-input tool (Playwright included — this is a well-known, tool-wide limitation, not specific to this app.) `forceFallback` also sidesteps native DnD's inconsistent drag-image rendering and its friction with fixed/sticky-positioned ancestors (this layout has both).
+
+Sync strategy: **every** drag operation (drop from palette, move to another day, reorder within a day) calls the relevant API endpoint, then reloads the entire week from the server and re-initializes all Sortable instances (`initSortables()` destroys and recreates them). This trades a small UI flash for never having Vue's virtual DOM and Sortable's direct DOM manipulation fight over list order — there is exactly one source of truth (the server) at all times.
+
+**Tap-to-place is a first-class second path, not a fallback-of-last-resort**: click a palette template (`selectTemplate`) to highlight it, then click a day's "+ Add …" button (`placeOnDay`) to place it there, calling the exact same `Storage.addBlock` flow a drop would. This exists because drag-only interactions exclude touch-without-precision, keyboard, and screen-reader users regardless of how well the drag itself works — and, concretely, it's how this feature's add-block path got verified end-to-end in a browser (see the browser-automation note above).
 
 ## Auto-build (lib/autobuild.js)
 

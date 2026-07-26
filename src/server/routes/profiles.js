@@ -16,8 +16,9 @@
 const express = require('express');
 const crypto  = require('crypto');
 
-const { query }       = require('../db/pool');
-const { requireAuth } = require('../middleware/auth');
+const { query }         = require('../db/pool');
+const { requireAuth }   = require('../middleware/auth');
+const { blankToNull }   = require('../lib/validation');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -53,7 +54,8 @@ router.post('/', async (req, res) => {
   await query(
     `INSERT INTO profiles (id, user_id, name, age, weight, height, gender, resting_hr, max_hr)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, req.session.userId, name, age ?? null, weight ?? null, height ?? null, gender ?? null, restingHr ?? null, maxHr ?? null]
+    [id, req.session.userId, name, blankToNull(age), blankToNull(weight), blankToNull(height),
+     blankToNull(gender), blankToNull(restingHr), blankToNull(maxHr)]
   );
   const profile = await findOwnedProfile(id, req.session.userId);
   res.status(201).json(toApiProfile(profile));
@@ -72,7 +74,8 @@ router.put('/:id', async (req, res) => {
   const merged = { ...toApiProfile(existing), ...req.body };
   await query(
     `UPDATE profiles SET name=?, age=?, weight=?, height=?, gender=?, resting_hr=?, max_hr=? WHERE id=?`,
-    [merged.name, merged.age, merged.weight, merged.height, merged.gender, merged.restingHr, merged.maxHr, req.params.id]
+    [merged.name, blankToNull(merged.age), blankToNull(merged.weight), blankToNull(merged.height),
+     blankToNull(merged.gender), blankToNull(merged.restingHr), blankToNull(merged.maxHr), req.params.id]
   );
   const updated = await findOwnedProfile(req.params.id, req.session.userId);
   res.json(toApiProfile(updated));

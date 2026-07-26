@@ -41,11 +41,20 @@ app.component('WeekBuilder', {
       loading:        false,
       autobuilding:   false,
       _sortables:     [],
+      // Tap-to-place: select a palette template, then tap a day to add it —
+      // an equivalent to dragging, not just a fallback for it. Drag-and-drop
+      // is nice on a desktop mouse but unusable for touch/keyboard/screen-
+      // reader users without this, so it's a first-class path, not an
+      // afterthought.
+      selectedTemplateId: null,
       DAY_LABELS,
       CATEGORY_LABELS
     };
   },
   computed: {
+    selectedTemplate() {
+      return this.blockTemplates.find(t => t.id === this.selectedTemplateId) || null;
+    },
     weekEndDate() {
       const d = new Date(`${this.weekStartDate}T00:00:00`);
       d.setDate(d.getDate() + 6);
@@ -138,6 +147,22 @@ app.component('WeekBuilder', {
       return this.week ? Storage.exportWeekUrl(this.profile.id, this.week.id, format) : '#';
     },
 
+    // ── Tap-to-place (drag-and-drop's click/touch/keyboard equivalent) ──
+    selectTemplate(t) {
+      this.selectedTemplateId = this.selectedTemplateId === t.id ? null : t.id;
+    },
+
+    async placeOnDay(dayIndex) {
+      const template = this.selectedTemplate;
+      if (!template) return;
+      await Storage.addBlock(this.profile.id, this.week.id, {
+        dayOfWeek: dayIndex, blockType: template.category, title: template.label,
+        durationMin: template.defaultDurationMin, details: template.details
+      });
+      this.selectedTemplateId = null;
+      await this.loadWeek();
+    },
+
     // ── Drag and drop wiring ────────────────────────────────────────────
     destroySortables() {
       this._sortables.forEach(s => s.destroy());
@@ -153,7 +178,13 @@ app.component('WeekBuilder', {
         this._sortables.push(new Sortable(paletteEl, {
           group: { name: 'week-blocks', pull: 'clone', put: false },
           sort: false,
-          animation: 150
+          animation: 150,
+          // Pointer-based dragging instead of the browser's native HTML5 DnD:
+          // avoids native DnD's inconsistent drag-image rendering and its
+          // known friction with fixed/sticky-positioned ancestors (this
+          // layout has both — the sidebar and header), and works uniformly
+          // across mouse and touch instead of falling back only on touch.
+          forceFallback: true
         }));
       }
 
@@ -161,6 +192,7 @@ app.component('WeekBuilder', {
         this._sortables.push(new Sortable(el, {
           group: { name: 'week-blocks', pull: true, put: true },
           animation: 150,
+          forceFallback: true,
           onAdd: evt => this.handleDrop(evt, dayIndex, paletteEl),
           onUpdate: evt => this.handleReorder(evt, dayIndex)
         }));
@@ -226,12 +258,14 @@ app.component('WeekBuilder', {
       <div class="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-4">
         <!-- Palette -->
         <div class="module-card">
-          <h3 class="text-sky-400 font-semibold text-xs uppercase tracking-wider mb-3">Drag a block onto a day</h3>
+          <h3 class="text-sky-400 font-semibold text-xs uppercase tracking-wider mb-1">Drag a block onto a day</h3>
+          <p class="text-xs text-slate-500 mb-3">Or tap a block, then tap a day — works without a mouse.</p>
           <div ref="palette" class="space-y-4">
             <div v-for="(items, cat) in templatesByCategory" :key="cat">
               <div class="text-xs text-slate-500 font-medium mb-1">{{ CATEGORY_LABELS?.[cat] || cat }}</div>
               <div v-for="t in items" :key="t.id" :data-template-id="t.id"
-                   class="palette-item" :class="'palette-' + t.category">
+                   @click="selectTemplate(t)"
+                   class="palette-item" :class="['palette-' + t.category, selectedTemplateId === t.id ? 'palette-item-selected' : '']">
                 <span>{{ t.icon }}</span>
                 <span class="flex-1 min-w-0 truncate">{{ t.label }}</span>
                 <span class="text-xs text-slate-500">{{ t.defaultDurationMin }}m</span>
@@ -257,7 +291,10 @@ app.component('WeekBuilder', {
                 <div class="text-[10px] text-slate-500 mt-0.5">{{ block.durationMin || '?' }} min</div>
               </li>
             </ul>
-            <p v-if="!dayBlocks(dayIndex).length" class="day-column-empty">Drop here</p>
+            <button v-if="selectedTemplate" @click="placeOnDay(dayIndex)" class="day-column-tap-target">
+              + Add {{ selectedTemplate.label }}
+            </button>
+            <p v-else-if="!dayBlocks(dayIndex).length" class="day-column-empty">Drop here</p>
           </div>
         </div>
       </div>

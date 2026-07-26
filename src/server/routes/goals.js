@@ -15,6 +15,7 @@ const crypto  = require('crypto');
 const { query }         = require('../db/pool');
 const { requireAuth }   = require('../middleware/auth');
 const { GOAL_TEMPLATES } = require('../lib/templates');
+const { blankToNull }   = require('../lib/validation');
 
 const router = express.Router({ mergeParams: true });
 router.use(requireAuth);
@@ -57,7 +58,8 @@ router.post('/', async (req, res) => {
   await query(
     `INSERT INTO goals (id, profile_id, title, goal_type, target_date, target_value, unit, current_value, notes, status)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
-    [id, req.params.id, title, goalType, targetDate || null, targetValue ?? null, unit ?? null, currentValue ?? null, notes ?? null]
+    [id, req.params.id, title, goalType, blankToNull(targetDate), blankToNull(targetValue),
+     blankToNull(unit), blankToNull(currentValue), blankToNull(notes)]
   );
   const rows = await query('SELECT * FROM goals WHERE id = ?', [id]);
   res.status(201).json(toApiGoal(rows[0]));
@@ -74,8 +76,8 @@ router.put('/:goalId', async (req, res) => {
   await query(
     `UPDATE goals SET title=?, goal_type=?, target_date=?, target_value=?, unit=?, current_value=?, notes=?, status=?
      WHERE id=?`,
-    [merged.title, merged.goalType, merged.targetDate || null, merged.targetValue, merged.unit,
-     merged.currentValue, merged.notes, merged.status, req.params.goalId]
+    [merged.title, merged.goalType, blankToNull(merged.targetDate), blankToNull(merged.targetValue),
+     blankToNull(merged.unit), blankToNull(merged.currentValue), blankToNull(merged.notes), merged.status, req.params.goalId]
   );
   const rows = await query('SELECT * FROM goals WHERE id = ?', [req.params.goalId]);
   res.json(toApiGoal(rows[0]));
