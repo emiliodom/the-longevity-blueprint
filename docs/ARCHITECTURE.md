@@ -18,6 +18,7 @@ src/
     └── components/
         ├── calculators.js       — 9 biometric calculator components
         ├── charts.js            — BarChart / DonutChart (Chart.js wrappers)
+        ├── blockStyleConfig.js  — window.BlockStyleConfig: block style/position/collision/animation tuning (plain data — edit this, not weekBuilder.js/style.css, to retune how blocks look/drag)
         ├── weekBuilder.js       — WeekBuilder: drag-and-drop week planner (SortableJS)
         ├── goalDashboard.js     — GoalDashboard: milestone CRUD + "Build Week" handoff
         ├── dailyTracker.js      — DailyTracker: Strava link + screenshots, embeds AiAnalyzer

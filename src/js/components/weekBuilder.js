@@ -12,7 +12,7 @@
  * Sortable's DOM never fight over ordering.
  */
 
-/* global app, Sortable, Storage */
+/* global app, Sortable, Storage, BlockStyleConfig */
 
 function toIsoDateLocal(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -27,7 +27,6 @@ function mondayOf(date) {
 }
 
 const DAY_LABELS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-const CATEGORY_LABELS = { run: '🏃 Running', weights: '💪 Weight Training', cycling: '🚴 Cycling', stretch: '🤸 Stretching' };
 
 app.component('WeekBuilder', {
   props: ['profile'],
@@ -47,8 +46,7 @@ app.component('WeekBuilder', {
       // reader users without this, so it's a first-class path, not an
       // afterthought.
       selectedTemplateId: null,
-      DAY_LABELS,
-      CATEGORY_LABELS
+      DAY_LABELS
     };
   },
   computed: {
@@ -103,7 +101,13 @@ app.component('WeekBuilder', {
     },
     blockIcon(block) {
       const t = this.blockTemplates.find(bt => bt.category === block.blockType && bt.label === block.title);
-      return t?.icon || { run: '🏃', weights: '💪', cycling: '🚴', stretch: '🤸' }[block.blockType] || '•';
+      return t?.icon || BlockStyleConfig.categoryStyle(block.blockType).fallbackIcon;
+    },
+    categoryLabel(category) {
+      return BlockStyleConfig.categoryStyle(category).label;
+    },
+    cardStyle(category) {
+      return BlockStyleConfig.cardInlineStyle(category);
     },
 
     async loadWeek() {
@@ -175,27 +179,18 @@ app.component('WeekBuilder', {
 
       const paletteEl = this.$refs.palette;
       if (paletteEl) {
-        this._sortables.push(new Sortable(paletteEl, {
+        this._sortables.push(new Sortable(paletteEl, BlockStyleConfig.sortableOptions({
           group: { name: 'week-blocks', pull: 'clone', put: false },
-          sort: false,
-          animation: 150,
-          // Pointer-based dragging instead of the browser's native HTML5 DnD:
-          // avoids native DnD's inconsistent drag-image rendering and its
-          // known friction with fixed/sticky-positioned ancestors (this
-          // layout has both — the sidebar and header), and works uniformly
-          // across mouse and touch instead of falling back only on touch.
-          forceFallback: true
-        }));
+          sort: false
+        })));
       }
 
       (this.$refs.dayLists || []).forEach((el, dayIndex) => {
-        this._sortables.push(new Sortable(el, {
+        this._sortables.push(new Sortable(el, BlockStyleConfig.sortableOptions({
           group: { name: 'week-blocks', pull: true, put: true },
-          animation: 150,
-          forceFallback: true,
           onAdd: evt => this.handleDrop(evt, dayIndex, paletteEl),
           onUpdate: evt => this.handleReorder(evt, dayIndex)
-        }));
+        })));
       });
     },
 
@@ -262,10 +257,10 @@ app.component('WeekBuilder', {
           <p class="text-xs text-slate-500 mb-3">Or tap a block, then tap a day — works without a mouse.</p>
           <div ref="palette" class="space-y-4">
             <div v-for="(items, cat) in templatesByCategory" :key="cat">
-              <div class="text-xs text-slate-500 font-medium mb-1">{{ CATEGORY_LABELS?.[cat] || cat }}</div>
+              <div class="text-xs text-slate-500 font-medium mb-1">{{ categoryLabel(cat) }}</div>
               <div v-for="t in items" :key="t.id" :data-template-id="t.id"
-                   @click="selectTemplate(t)"
-                   class="palette-item" :class="['palette-' + t.category, selectedTemplateId === t.id ? 'palette-item-selected' : '']">
+                   @click="selectTemplate(t)" :style="cardStyle(t.category)"
+                   class="palette-item" :class="selectedTemplateId === t.id ? 'palette-item-selected' : ''">
                 <span>{{ t.icon }}</span>
                 <span class="flex-1 min-w-0 truncate">{{ t.label }}</span>
                 <span class="text-xs text-slate-500">{{ t.defaultDurationMin }}m</span>
@@ -283,7 +278,7 @@ app.component('WeekBuilder', {
             </div>
             <ul ref="dayLists" class="day-column-list" :data-day="dayIndex">
               <li v-for="block in dayBlocks(dayIndex)" :key="block.id" :data-block-id="block.id"
-                  class="block-card" :class="'block-' + block.blockType">
+                  class="block-card" :style="cardStyle(block.blockType)">
                 <div class="flex items-start justify-between gap-1">
                   <span class="text-sm">{{ blockIcon(block) }} {{ block.title }}</span>
                   <button @click="deleteBlock(block.id)" class="text-slate-500 hover:text-red-400 text-xs flex-shrink-0">✕</button>

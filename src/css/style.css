@@ -577,10 +577,10 @@ html.light-mode code.text-sky-400 {
   box-shadow:   0 0 0 2px rgba(56,189,248,.35);
   background:   var(--c-surface3);
 }
-.palette-item.palette-run      { border-left: 3px solid #38bdf8; }
-.palette-item.palette-weights  { border-left: 3px solid #a78bfa; }
-.palette-item.palette-cycling  { border-left: 3px solid #fb923c; }
-.palette-item.palette-stretch  { border-left: 3px solid #34d399; }
+/* Category accent color comes from the --block-accent custom property set
+   inline by cardStyle() in weekBuilder.js (config: blockStyleConfig.js) —
+   not a fixed rule per category, so new sports/categories need no CSS edit. */
+.palette-item { border-left: 3px solid var(--block-accent, var(--c-border)); }
 
 .day-column {
   background:    var(--c-surface2);
@@ -640,11 +640,9 @@ html.light-mode code.text-sky-400 {
   color:         var(--c-text2);
   cursor:        grab;
 }
-.block-card.block-run      { border-left: 3px solid #38bdf8; }
-.block-card.block-weights  { border-left: 3px solid #a78bfa; }
-.block-card.block-cycling  { border-left: 3px solid #fb923c; }
-.block-card.block-stretch  { border-left: 3px solid #34d399; }
-.block-card.sortable-ghost { opacity: .4; }
+/* Same --block-accent pattern as .palette-item, above. */
+.block-card { border-left: 3px solid var(--block-accent, var(--c-border)); }
+.block-ghost { opacity: var(--block-ghost-opacity, .4); }
 
 /* ── Goal Dashboard ───────────────────────────────────────────────────────── */
 .goal-card {

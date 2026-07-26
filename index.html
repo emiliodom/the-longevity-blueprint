@@ -772,23 +772,25 @@
 
 <!--
   Script load order:
-    1. db.js              — DB[], NAV_GROUPS
-    2. storage.js         — Storage async client
-    3. app.js              — createApp() as global `app`
-    4. calculators.js      — register all calculator components on `app`
-    5. charts.js           — register BarChart, DonutChart on `app`
-    6. weekBuilder.js      — register WeekBuilder (drag-and-drop, needs SortableJS from <head>)
-    7. goalDashboard.js    — register GoalDashboard
-    8. aiAnalyzer.js       — register AiAnalyzer (used inside DailyTracker)
-    9. dailyTracker.js     — register DailyTracker
-   10. settingsPage.js     — register SettingsPage
-   11. app.mount()         — wire everything
+    1. db.js               — DB[], NAV_GROUPS
+    2. storage.js          — Storage async client
+    3. app.js               — createApp() as global `app`
+    4. calculators.js       — register all calculator components on `app`
+    5. charts.js            — register BarChart, DonutChart on `app`
+    6. blockStyleConfig.js  — window.BlockStyleConfig (style/position/collision/animation tuning, needed by weekBuilder.js)
+    7. weekBuilder.js       — register WeekBuilder (drag-and-drop, needs SortableJS from <head>)
+    8. goalDashboard.js     — register GoalDashboard
+    9. aiAnalyzer.js        — register AiAnalyzer (used inside DailyTracker)
+   10. dailyTracker.js      — register DailyTracker
+   11. settingsPage.js      — register SettingsPage
+   12. app.mount()          — wire everything
 -->
 <script src="src/js/db.js"></script>
 <script src="src/js/storage.js"></script>
 <script src="src/js/app.js"></script>
 <script src="src/js/components/calculators.js"></script>
 <script src="src/js/components/charts.js"></script>
+<script src="src/js/components/blockStyleConfig.js"></script>
 <script src="src/js/components/weekBuilder.js"></script>
 <script src="src/js/components/goalDashboard.js"></script>
 <script src="src/js/components/aiAnalyzer.js"></script>
