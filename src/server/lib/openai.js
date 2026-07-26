@@ -28,9 +28,9 @@ function fileToDataUrl(absPath) {
   return `data:image/${mime};base64,${b64}`;
 }
 
-function buildPrompt(scope, profile, logs, trackers) {
+function buildPrompt(scope, profile, logs, trackers, meals, supplementsTaken) {
   const lines = [];
-  lines.push(`You are a longevity/endurance coach analyzing training data for athlete "${profile.name}" (age ${profile.age ?? '?'}, ${profile.gender ?? 'unspecified'}).`);
+  lines.push(`You are a longevity/endurance coach analyzing training, nutrition, and supplement data for athlete "${profile.name}" (age ${profile.age ?? '?'}, ${profile.gender ?? 'unspecified'}).`);
   lines.push(`Analysis scope: ${scope}.`);
   lines.push('');
   lines.push('Workout log entries:');
@@ -43,21 +43,41 @@ function buildPrompt(scope, profile, logs, trackers) {
     ? trackers.map(t => `- ${t.date}: strava=${t.strava_url ?? '-'} notes="${t.notes ?? ''}"`).join('\n')
     : '(none logged in this period)');
   lines.push('');
+  lines.push('Meals logged (Food Planner, Guatemalan-diet based):');
+  if (!meals.length) {
+    lines.push('(none logged in this period)');
+  } else {
+    const byDate = {};
+    meals.forEach(m => { (byDate[m.date] ||= { kcal: 0, protein: 0, carbs: 0, fat: 0 }); const d = byDate[m.date]; d.kcal += m.macros.kcal; d.protein += m.macros.protein; d.carbs += m.macros.carbs; d.fat += m.macros.fat; });
+    lines.push(Object.entries(byDate).map(([date, t]) =>
+      `- ${date}: ${Math.round(t.kcal)} kcal, ${Math.round(t.protein)}g protein, ${Math.round(t.carbs)}g carbs, ${Math.round(t.fat)}g fat`
+    ).join('\n'));
+  }
+  lines.push('');
+  lines.push('Supplements taken (Supplements tracker):');
+  if (!supplementsTaken.length) {
+    lines.push('(none logged in this period)');
+  } else {
+    const byDate = {};
+    supplementsTaken.forEach(s => { (byDate[s.date] ||= []).push(s.name); });
+    lines.push(Object.entries(byDate).map(([date, names]) => `- ${date}: ${names.join(', ')}`).join('\n'));
+  }
+  lines.push('');
   lines.push('Any attached images are Strava/insights screenshots from this period — read visible metrics and graphs from them.');
   lines.push('');
-  lines.push('Give a concise, actionable analysis: what went well, what to adjust, and any red flags (overtraining signals, missed sessions, injury risk). Keep it under 300 words.');
+  lines.push('Give a concise, actionable analysis covering training, nutrition, and supplement adherence together: what went well, what to adjust, and any red flags (overtraining signals, missed sessions, injury risk, under/over-eating relative to the logged target). Keep it under 350 words.');
   return lines.join('\n');
 }
 
 /**
- * @param {{scope:string, profile:object, logs:object[], trackers:object[], screenshotPaths:string[]}} input
+ * @param {{scope:string, profile:object, logs:object[], trackers:object[], screenshotPaths:string[], meals:object[], supplementsTaken:object[]}} input
  * @returns {Promise<{summary:string, raw:object}>}
  */
-async function analyze({ scope, profile, logs, trackers, screenshotPaths }) {
+async function analyze({ scope, profile, logs, trackers, screenshotPaths, meals = [], supplementsTaken = [] }) {
   const openai = getClient();
   if (!openai) throw new Error('OPENAI_API_KEY is not configured on the server');
 
-  const content = [{ type: 'text', text: buildPrompt(scope, profile, logs, trackers) }];
+  const content = [{ type: 'text', text: buildPrompt(scope, profile, logs, trackers, meals, supplementsTaken) }];
   const usableImages = screenshotPaths.filter(p => fs.existsSync(p)).slice(0, MAX_IMAGES);
   usableImages.forEach(p => content.push({ type: 'image_url', image_url: { url: fileToDataUrl(p) } }));
 

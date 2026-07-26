@@ -31,10 +31,12 @@ In the Node.js app's **Environment Variables** panel, set (do not commit these �
 | Variable | Value |
 |---|---|
 | `PORT` | Whatever Hostinger's Node app expects to bind (check the app's assigned port in hPanel — Passenger/Node apps on Hostinger typically inject their own `PORT`; the app already reads `process.env.PORT`) |
+| `NODE_ENV` | `production` — **required**, or the session cookie's `secure` flag stays off and cookies won't be sent back correctly over HTTPS |
 | `SESSION_SECRET` | A long random string — generate one, don't reuse the repo default |
 | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | From step 1 |
 | `OPENAI_API_KEY` | Your OpenAI platform key |
 | `OPENAI_MODEL` | e.g. `gpt-4o-mini` (leave unset to use that default) |
+| `PEXELS_API_KEY` | Optional — your Pexels API key; content-page hero images just don't render (plain title header instead) if unset |
 
 ## 5. Install dependencies and create the schema
 

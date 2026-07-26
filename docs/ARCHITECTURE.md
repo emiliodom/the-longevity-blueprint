@@ -157,7 +157,7 @@ Deterministic and rules-based — **not** an AI feature. `GOAL_TYPE_DOMAIN` maps
 
 ## AI Analyzer (lib/openai.js, routes/ai.js)
 
-`POST /api/profiles/:id/ai/analyze` with `{ scope: 'day'|'week'|'month', date, regenerate? }`. Computes the period's start/end date, gathers `workout_logs` + `daily_trackers` (+ their screenshot files, base64-encoded, capped at 10 images) for that window, and sends one chat-completions request to a vision-capable OpenAI model (`OPENAI_MODEL` env var). Results are cached in `ai_analyses` keyed by `(profile_id, scope, period_start)` — repeat views return the cached row unless `regenerate: true` is passed, so viewing the same period twice never re-spends API credits silently.
+`POST /api/profiles/:id/ai/analyze` with `{ scope: 'day'|'week'|'month', date, regenerate? }`. Computes the period's start/end date, gathers `workout_logs` + `daily_trackers` (+ their screenshot files, base64-encoded, capped at 10 images), `meal_plan_items` (joined against `meal_plans` and filtered by computed date via `DATE_ADD` in SQL, since items only carry a `day_of_week` offset, not an absolute date), and `supplement_intakes` for that window, and sends one chat-completions request to a vision-capable OpenAI model (`OPENAI_MODEL` env var). The prompt covers training, nutrition, and supplement adherence together — see `buildPrompt()` in `lib/openai.js`. Results are cached in `ai_analyses` keyed by `(profile_id, scope, period_start)` — repeat views return the cached row unless `regenerate: true` is passed, so viewing the same period twice never re-spends API credits silently.
 
 ## Hero images (lib/pexels.js, routes/images.js)
 
@@ -216,6 +216,7 @@ Three independent concerns, one page:
 |---|---|
 | `PORT` | HTTP port (default 3000) |
 | `SESSION_SECRET` | express-session secret |
+| `NODE_ENV` | Set to `production` in real deployments — gates the session cookie's `secure` flag (see Security, above) |
 | `DB_HOST` / `DB_PORT` / `DB_USER` / `DB_PASSWORD` / `DB_NAME` | MySQL connection (used by `pool.js` and `setup.js`) |
 | `OPENAI_API_KEY` | Server-side only — never sent to the browser |
 | `OPENAI_MODEL` | Defaults to `gpt-4o-mini` in `lib/openai.js` if unset |

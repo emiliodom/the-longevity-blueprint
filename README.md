@@ -84,7 +84,7 @@ Allowed formats: **JPEG, PNG, WebP, GIF** · Maximum size: **2 MB**
 
 ## Features
 
-### 24 Pages
+### 30 Pages
 
 | # | Page |
 |---|---|
@@ -112,6 +112,12 @@ Allowed formats: **JPEG, PNG, WebP, GIF** · Maximum size: **2 MB**
 | 22 | Belly Fat Measurement Guide |
 | 23 | Science Cheatsheet |
 | 24 | Environment & Caloric Factors |
+| 25 | Week Builder |
+| 26 | Goal Dashboard |
+| 27 | Daily Tracker |
+| 28 | Settings |
+| 29 | Food Planner |
+| 30 | Supplements |
 
 ### Calculators
 - **BMR / TDEE** — Mifflin-St Jeor with activity multiplier
@@ -135,18 +141,26 @@ Allowed formats: **JPEG, PNG, WebP, GIF** · Maximum size: **2 MB**
 - Daily notes with auto-save (500 ms debounce)
 
 ### Week Training Builder
-- Drag-and-drop weekly planner (Monday–Sunday), palette of Running / Weight Training / Cycling / Stretching blocks
-- **Auto-Build**: generates a full week from an active goal's target date (e.g. a 4/30 milestone 5K) using a deterministic rules engine — daily Zone 2 running, alternating upper/lower barbell days, an interval-to-tempo progression as race day nears, a long Sunday ride, and daily heel-rehab mobility
+- Drag-and-drop weekly planner (Monday–Sunday), palette of Running / Trail Running / Weight Training / Calisthenics / Cycling / Swimming / Boxing / Stretching blocks
+- Block style, sizing, and drag feel (color, animation timing, ghost opacity, swap threshold) all come from one plain-data config file (`src/js/components/blockStyleConfig.js`) — retune the whole builder's look and feel there without touching component code
+- **Auto-Build**: generates a full week from an active goal's target date using a deterministic rules engine tailored to that goal's sport — e.g. a 5K/marathon goal gets daily Zone 2 running with an interval-to-tempo progression as race day nears; a calisthenics goal gets a push/pull/leg/skill split; a swim goal gets Critical-Swim-Speed interval sets; a boxing goal gets heavy-bag + HIIT rounds
 - Export the week as **PDF**, **CSV**, or an **.ics calendar file** (import into Google/Apple/Outlook calendars)
 
 ### Goal Dashboard
-- Track milestones (race times, weight targets, lift PRs, ride distances) with target dates and progress
-- Start from a built-in template (5K, 10K, Half Marathon, Weight Target, Lift PR, Century Ride) or a custom goal
+- Track milestones with target dates and progress, across running/trail, natural bodyweight progression (pull-up → muscle-up, pistol squat, handstand push-up, front lever, L-sit — not bodybuilding), cycling (FTP), swimming (Critical Swim Speed), amateur boxing conditioning, weight targets, and lift PRs
+- ~20 built-in templates grounded in widely-cited standards (r/bodyweightfitness's Recommended Routine, Coggan power zones, Critical Swim Speed) or start a custom goal
 - "Build Week from this Goal" jumps straight into the Week Builder with a plan generated around it
+
+### Calorie & Food Planner
+- Plan meals for the week (breakfast/lunch/dinner/snack) from a ~24-item database of common Guatemalan staples — everyday food, not an exhaustive international database
+- Calories/macros are computed automatically per item and totaled per day, shown against a daily target that mirrors the app's own protocol (2,100 kcal Mon–Sat, 2,800 kcal Sunday surplus, 1.6g/kg protein)
+
+### Supplements
+- Daily checklist for the same 8-supplement stack already discussed with sources on the Minimalist Supplement Stack and Developer Athlete Advanced Stack pages (creatine, whey, collagen+C, omega-3, D3/K2, lutein/zeaxanthin, glycine, magnesium glycinate) — dose, timing, and the evidence behind each
 
 ### Daily Tracker + AI Analyzer
 - Log a Strava activity link, notes, and upload screenshots (Strava/insights/wearable summaries) per day
-- **AI Analyzer** (OpenAI, server-side key): day / week / month analysis that reads both your logged data and the screenshots themselves (vision model), with results cached so re-viewing a period doesn't re-spend API credits
+- **AI Analyzer** (OpenAI, server-side key): day / week / month analysis covering training, nutrition (meals logged in the Food Planner), and supplement adherence together, plus reading the screenshots themselves (vision model) — results are cached so re-viewing a period doesn't re-spend API credits
 - Screenshot uploads and AI analyses are both capped per account per day (60 and 30 respectively) — a hard wall against any single account exhausting storage or OpenAI credits, with no exceptions for any account. Current usage is visible on the Settings page.
 
 ### Settings

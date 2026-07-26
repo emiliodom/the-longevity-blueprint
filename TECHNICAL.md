@@ -1,6 +1,6 @@
 # Technical Reference — Longevity Blueprint v3
 
-For the full folder map, database schema, and API surface, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — that is now the primary reference for the backend (`src/server/`). This file focuses on the frontend (Vue app, page content, theming) which is unchanged in structure from v2 aside from five new component files.
+For the full folder map, database schema, and API surface, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — that is now the primary reference for the backend (`src/server/`). This file focuses on the frontend (Vue app, page content, theming) which is unchanged in structure from v2 aside from eight new component files.
 
 ## Architecture Overview
 
@@ -26,28 +26,33 @@ the-longevity-blueprint/
     │   ├── storage.js           # Async REST API client (auth + data methods)
     │   ├── app.js               # Vue 3 app — createApp() without mount()
     │   └── components/
-    │       ├── calculators.js   # 9 calculator Vue components
-    │       ├── charts.js        # BarChart + DonutChart Vue components
-    │       ├── weekBuilder.js   # Drag-and-drop Week Training Builder
-    │       ├── goalDashboard.js # Goal Dashboard (milestones)
-    │       ├── dailyTracker.js  # Daily Exercise Tracker
-    │       ├── aiAnalyzer.js    # OpenAI day/week/month analyzer panel
-    │       └── settingsPage.js  # Password, usage quotas, language, theme
+    │       ├── calculators.js      # 9 calculator Vue components
+    │       ├── charts.js           # BarChart + DonutChart Vue components
+    │       ├── blockStyleConfig.js # Block style/position/collision/animation tuning (plain data)
+    │       ├── weekBuilder.js      # Drag-and-drop Week Training Builder
+    │       ├── goalDashboard.js    # Goal Dashboard (milestones)
+    │       ├── dailyTracker.js     # Daily Exercise Tracker
+    │       ├── aiAnalyzer.js       # OpenAI day/week/month analyzer panel
+    │       ├── settingsPage.js     # Password, usage quotas, language, theme
+    │       ├── foodPlanner.js      # Calorie & Food Planner (Guatemalan food)
+    │       └── supplementStack.js  # Daily supplement checklist
     └── server/                  # Backend — see docs/ARCHITECTURE.md for the full map
         ├── db/                  # MySQL pool, schema.sql, setup.js
-        ├── middleware/          # requireAuth
-        ├── lib/                 # templates, autobuild rules, OpenAI client, exporters
+        ├── middleware/          # requireAuth, auth rate limiter
+        ├── lib/                 # templates, autobuild rules, foods, supplements, OpenAI client, exporters
         └── routes/              # one Express router per domain
 ```
+
+Every component file wraps its body in an IIFE — see the "IIFE" note in `docs/ARCHITECTURE.md`'s folder map for why (plain `<script>` tags share one global scope; a `const` collision between two files silently aborted a whole script the first time this bit us).
 
 ### Script Load Order (index.html)
 
 Scripts must load in this exact order. Each file depends on globals from the previous:
 
 ```
-db.js → storage.js → app.js → calculators.js → charts.js
+db.js → storage.js → app.js → calculators.js → charts.js → blockStyleConfig.js
    → weekBuilder.js → goalDashboard.js → aiAnalyzer.js → dailyTracker.js
-   → settingsPage.js → app.mount('#app')
+   → settingsPage.js → foodPlanner.js → supplementStack.js → app.mount('#app')
 ```
 
 `aiAnalyzer.js` loads before `dailyTracker.js` because `DailyTracker`'s template embeds `<ai-analyzer>` — Vue needs the child component already registered on `app`.
@@ -162,9 +167,10 @@ interface LogEntry {
   id: 1,
   icon: '🗺️',
   title: 'Page Title',
-  hero: 'https://images.unsplash.com/...', // '' for Dashboard/Journal
-  isDashboard: true,  // optional — marks page 20
-  isJournal:   true,  // optional — marks page 21
+  hero: 'mountain sunrise trail runner', // a Pexels search query string, NOT a URL — '' for utility pages (Dashboard, Journal, Week Builder, etc.); see docs/ARCHITECTURE.md's "Hero images" section
+  isDashboard: true,  // optional — marks page 20; the isX flags below follow the same one-per-special-page pattern
+  isJournal:   true,  // page 21
+  // isTrainingBuilder (25) / isGoals (26) / isTracker (27) / isSettings (28) / isNutrition (29) / isSupplements (30)
   content: [
     { type: 'paragraph',  text: '<HTML string>' },
     { type: 'quote',      text: 'Plain text' },
@@ -185,6 +191,9 @@ interface LogEntry {
 | Health | 16, 17, 18, 19, 22 |
 | Reference | 23, 24 |
 | System | 20, 21 |
+| Training Builder | 25, 26, 27 |
+| Planner | 29, 30 |
+| Account | 28 |
 
 ### Adding a New Page
 
@@ -347,6 +356,7 @@ Loaded from `.env` via `dotenv` (see `.env.example`). Full list and purpose in [
 |---|---|---|
 | `PORT` | `3000` | HTTP server port |
 | `SESSION_SECRET` | `bp-longevity-secret-2024` | express-session secret key (change in production) |
+| `NODE_ENV` | — | Set to `production` in real deployments — gates the session cookie's `secure` flag |
 | `DB_HOST` / `DB_PORT` / `DB_USER` / `DB_PASSWORD` / `DB_NAME` | `localhost` / `3306` / `root` / `` / `longevity_blueprint` | MySQL connection |
 | `OPENAI_API_KEY` | — | Required for the AI Analyzer; server-side only |
 | `OPENAI_MODEL` | `gpt-4o-mini` | Vision-capable chat completions model |

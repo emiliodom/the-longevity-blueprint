@@ -17,6 +17,8 @@ const { query }                     = require('../db/pool');
 const { requireAuth }               = require('../middleware/auth');
 const { analyze }                   = require('../lib/openai');
 const { getQuotaStatus, recordUsage } = require('../lib/quota');
+const { macrosFor }                 = require('../lib/foods');
+const { findSupplement }            = require('../lib/supplements');
 
 const router = express.Router({ mergeParams: true });
 router.use(requireAuth);
@@ -104,7 +106,33 @@ router.post('/analyze', async (req, res) => {
       screenshotPaths = shots.map(s => path.join(__dirname, '..', '..', '..', s.file_path));
     }
 
-    const result = await analyze({ scope, profile, logs, trackers, screenshotPaths });
+    // Meal items don't carry an absolute date — they're (week_start_date +
+    // day_of_week) on their plan — so the date-range filter is computed in
+    // SQL via DATE_ADD rather than fetched wholesale and filtered in JS.
+    const mealRows = await query(
+      `SELECT mpi.day_of_week, mpi.meal_slot, mpi.food_id, mpi.grams,
+              DATE_ADD(mp.week_start_date, INTERVAL mpi.day_of_week DAY) AS meal_date
+       FROM meal_plan_items mpi
+       JOIN meal_plans mp ON mp.id = mpi.meal_plan_id
+       WHERE mp.profile_id = ?
+         AND DATE_ADD(mp.week_start_date, INTERVAL mpi.day_of_week DAY) BETWEEN ? AND ?
+       ORDER BY meal_date ASC`,
+      [req.params.id, period.start, period.end]
+    );
+    const meals = mealRows.map(m => ({
+      date: m.meal_date, mealSlot: m.meal_slot, foodId: m.food_id, grams: Number(m.grams),
+      macros: macrosFor(m.food_id, Number(m.grams))
+    }));
+
+    const supplementRows = await query(
+      'SELECT date, supplement_key FROM supplement_intakes WHERE profile_id = ? AND date BETWEEN ? AND ? ORDER BY date ASC',
+      [req.params.id, period.start, period.end]
+    );
+    const supplementsTaken = supplementRows.map(s => ({
+      date: s.date, name: findSupplement(s.supplement_key)?.name || s.supplement_key
+    }));
+
+    const result = await analyze({ scope, profile, logs, trackers, screenshotPaths, meals, supplementsTaken });
 
     const id = crypto.randomUUID();
     await query(

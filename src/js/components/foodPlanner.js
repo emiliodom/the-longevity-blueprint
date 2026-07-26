@@ -45,7 +45,7 @@ app.component('FoodPlanner', {
       plan: null,
       foods: [],
       activeDay: 0,
-      newItem: { mealSlot: 'breakfast', foodId: '', grams: 100 },
+      newItem: { foodId: '', grams: 100 },
       loading: false,
       DAY_LABELS,
       MEAL_SLOTS
