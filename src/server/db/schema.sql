@@ -151,6 +151,21 @@ CREATE TABLE IF NOT EXISTS meal_plan_items (
   INDEX idx_meal_items_plan (meal_plan_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Supplements tracker — supplement_key references SUPPLEMENT_TEMPLATES in
+-- src/server/lib/supplements.js (static content, not a table), the same
+-- pattern as meal_plan_items.food_id above. One row = "taken that day";
+-- toggling off just deletes the row rather than storing a false flag.
+CREATE TABLE IF NOT EXISTS supplement_intakes (
+  id              VARCHAR(36) PRIMARY KEY,
+  profile_id      VARCHAR(36) NOT NULL,
+  date            VARCHAR(10) NOT NULL,  -- YYYY-MM-DD
+  supplement_key  VARCHAR(64) NOT NULL,
+  created_at      DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_supplement_intakes_profile FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE CASCADE,
+  UNIQUE KEY uniq_profile_date_supplement (profile_id, date, supplement_key),
+  INDEX idx_supplement_intakes_profile_date (profile_id, date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Per-account usage quotas ("wall it so no one exhausts the app") — one row
 -- per actual attempt (a screenshot uploaded, a real OpenAI call made). See
 -- src/server/lib/quota.js. Deliberately a durable DB table, not an in-memory

@@ -24,7 +24,8 @@ src/
         ├── dailyTracker.js      — DailyTracker: Strava link + screenshots, embeds AiAnalyzer
         ├── aiAnalyzer.js        — AiAnalyzer: day/week/month OpenAI summary panel
         ├── settingsPage.js      — SettingsPage: password, usage quotas, language, theme
-        └── foodPlanner.js       — FoodPlanner: Guatemalan-food weekly meal planner vs daily calorie/macro target
+        ├── foodPlanner.js       — FoodPlanner: Guatemalan-food weekly meal planner vs daily calorie/macro target
+        └── supplementStack.js   — SupplementStack: daily checklist for the 8-supplement stack (db.js pages 7/8)
 
 Every file under components/ wraps its body in an IIFE. These are plain
 `<script>` tags, not ES modules — they all share one global scope, so a
@@ -52,6 +53,7 @@ src/server/                       — backend, one small file per concern
 │   ├── pexels.js                    — Pexels photo search + 24h in-memory cache, server-side key only
 │   ├── foods.js                      — FOOD_TEMPLATES: Guatemalan food macro data (static content, not user data)
 │   ├── nutritionTargets.js           — daily calorie/macro target (mirrors calculators.js formulas + db.js's 2,100/2,800 kcal protocol)
+│   ├── supplements.js                 — SUPPLEMENT_TEMPLATES: the same 8 supplements already cited in db.js pages 7/8
 │   └── exporters/
 │       ├── shared.js               — date/sort helpers shared by all 3 exporters
 │       ├── csv.js                  — week → CSV text
@@ -68,7 +70,8 @@ src/server/                       — backend, one small file per concern
     ├── tracker.js                       — Daily Tracker: Strava link + screenshot upload
     ├── ai.js                             — POST .../ai/analyze (day/week/month, cached)
     ├── images.js                          — GET /api/images/hero (Pexels-backed, graceful null fallback)
-    └── nutrition.js                        — Food Planner: foods list, meal-plan weeks/items, computed macros/targets
+    ├── nutrition.js                        — Food Planner: foods list, meal-plan weeks/items, computed macros/targets
+    └── supplements.js                       — Supplements tracker: templates + per-day taken[] (replace-all PUT)
 
 docs/
 ├── ARCHITECTURE.md               — this file
@@ -126,6 +129,7 @@ users ──< profiles ──< dashboards (1:1)
                    ├──< training_weeks ──< training_blocks
                    ├──< daily_trackers ──< tracker_screenshots
                    ├──< meal_plans ──< meal_plan_items
+                   ├──< supplement_intakes
                    └──< ai_analyses
 ```
 
@@ -171,11 +175,15 @@ The 22 content pages each carry a `heroQuery` string in `db.js` (e.g. `'mountain
 
 The daily calorie/macro target line isn't a new nutrition philosophy — `nutritionTargets.js` reimplements the exact formulas already in `calculators.js` (BMR via Mifflin-St Jeor, protein at 1.6g/kg, fat at 22%) and the exact protocol already stated in db.js pages 3/6 (2,100 kcal Mon–Sat, 2,800 kcal Sunday surplus), just exposed server-side as a per-day-of-week target for the planner to compare against.
 
+## Supplements tracker (lib/supplements.js, routes/supplements.js, supplementStack.js)
+
+`supplement_intakes` stores one row per (profile, date, supplement_key) — "taken" is presence of the row, not a boolean column; toggling off deletes it. The PUT endpoint replaces the whole day's set in one call (delete-all-then-reinsert) rather than exposing separate add/remove endpoints, mirroring the Daily Dashboard's existing single-PUT checklist pattern. `SUPPLEMENT_TEMPLATES` is intentionally the same 8 supplements db.js pages 7/8 already cite with sources — this is a tracker for existing reviewed content, not a new list to independently vet.
+
 ---
 
 ## New pages (frontend)
 
-Week Builder / Goal Dashboard / Daily Tracker / Settings / Food Planner are page ids **25–29** in `src/js/db.js`, flagged `isTrainingBuilder` / `isGoals` / `isTracker` / `isSettings` / `isNutrition` respectively — the same pattern as the existing `isDashboard` (page 20) / `isJournal` (page 21) pages. `index.html`'s main-content `v-else-if` chain and `app.js`'s generic top-bar PDF button (`exportPDF()` / `window.print()`) both exclude all five, since the Week Builder has its own server-rendered PDF/CSV/ICS export toolbar instead and the others don't need print export at all.
+Week Builder / Goal Dashboard / Daily Tracker / Settings / Food Planner / Supplements are page ids **25–30** in `src/js/db.js`, flagged `isTrainingBuilder` / `isGoals` / `isTracker` / `isSettings` / `isNutrition` / `isSupplements` respectively — the same pattern as the existing `isDashboard` (page 20) / `isJournal` (page 21) pages. `index.html`'s main-content `v-else-if` chain and `app.js`'s generic top-bar PDF button (`exportPDF()` / `window.print()`) both exclude all six, since the Week Builder has its own server-rendered PDF/CSV/ICS export toolbar instead and the others don't need print export at all.
 
 ## Settings page (settingsPage.js, routes/account.js)
 

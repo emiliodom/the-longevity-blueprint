@@ -331,6 +331,30 @@ const Storage = {
     return res.json();
   },
 
+  // ── Supplements ──────────────────────────────────────────────────────────
+
+  async getSupplementTemplates(profileId) {
+    const res = await fetch(`/api/profiles/${profileId}/supplements/templates`);
+    if (!res.ok) return [];
+    return res.json();
+  },
+
+  async getSupplementsForDay(profileId, date) {
+    const res = await fetch(`/api/profiles/${profileId}/supplements/${date}`);
+    if (!res.ok) return { date, taken: [] };
+    return res.json();
+  },
+
+  async saveSupplementsForDay(profileId, date, taken) {
+    const res = await fetch(`/api/profiles/${profileId}/supplements/${date}`, {
+      method:  'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ taken })
+    });
+    if (!res.ok) throw new Error('Failed to save supplements');
+    return res.json();
+  },
+
   // ── AI Analyzer ──────────────────────────────────────────────────────────
 
   async analyzeAI(profileId, scope, date, regenerate = false) {

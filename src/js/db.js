@@ -408,6 +408,13 @@ const DB = [
     content: [
       { type: 'paragraph', text: 'Plan meals for the week from common Guatemalan staples and see calories/macros against your daily target — 2,100 kcal Mon–Sat, 2,800 kcal Sunday, 1.6g/kg protein.' }
     ]
+  },
+  {
+    id: 30, icon: '💊', title: 'Supplements',
+    isSupplements: true, hero: '',
+    content: [
+      { type: 'paragraph', text: 'Track daily adherence to the 8-supplement stack already covered in the Minimalist Supplement Stack and Developer Athlete Advanced Stack pages — dose, timing, and the evidence behind each, one tap away.' }
+    ]
   }
 ];
 
@@ -419,6 +426,6 @@ const NAV_GROUPS = [
   { label: 'Reference',        pages: DB.filter(p => [23,24].includes(p.id)) },
   { label: 'System',           pages: DB.filter(p => [20,21].includes(p.id)) },
   { label: 'Training Builder', pages: DB.filter(p => [25,26,27].includes(p.id)) },
-  { label: 'Planner',          pages: DB.filter(p => [29].includes(p.id)) },
+  { label: 'Planner',          pages: DB.filter(p => [29,30].includes(p.id)) },
   { label: 'Account',          pages: DB.filter(p => [28].includes(p.id)) }
 ];

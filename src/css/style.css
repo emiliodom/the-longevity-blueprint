@@ -178,6 +178,20 @@ html.light-mode .hero::after {
 }
 .check-row:hover { background: var(--c-surface3); }
 
+/* Same visual as .check-row, but a container (not a button itself) since it
+   holds two independent controls: the toggle button and a "Why?" button. */
+.supplement-row {
+  display:       flex;
+  align-items:   center;
+  justify-content: space-between;
+  gap:           .75rem;
+  padding:       .75rem;
+  background:    var(--c-surface);
+  border-radius: .625rem;
+  transition:    background .15s;
+}
+.supplement-row:hover { background: var(--c-surface3); }
+
 /* ── Toggle switch ────────────────────────────────────────────────────────── */
 .toggle-track {
   width:         3rem;
