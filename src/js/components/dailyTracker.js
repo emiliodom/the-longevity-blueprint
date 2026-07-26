@@ -3,7 +3,13 @@
  *
  * Embeds <ai-analyzer> (aiAnalyzer.js) below the day's data so "analyze
  * my day" always has this profile's current date in view.
+ *
+ * Wrapped in an IIFE — see weekBuilder.js's header comment for why: plain
+ * <script> tags share one global scope, and this file's own toIsoDateLocal
+ * was silently colliding with (and being silently overwritten by) other
+ * component files' identically-named helper before this fix.
  */
+(function () {
 
 /* global app, Storage */
 
@@ -111,3 +117,5 @@ app.component('DailyTracker', {
     </div>
   `
 });
+
+})();

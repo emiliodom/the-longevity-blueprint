@@ -296,6 +296,41 @@ const Storage = {
     return res.json();
   },
 
+  // ── Calorie & Food Planner ───────────────────────────────────────────────
+
+  async getFoods(profileId) {
+    const res = await fetch(`/api/profiles/${profileId}/nutrition/foods`);
+    if (!res.ok) return [];
+    return res.json();
+  },
+
+  async ensureMealPlan(profileId, weekStartDate) {
+    const res = await fetch(`/api/profiles/${profileId}/nutrition/weeks`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ weekStartDate })
+    });
+    if (!res.ok) throw new Error('Failed to load meal plan');
+    return res.json();
+  },
+
+  async addMealItem(profileId, planId, item) {
+    const res = await fetch(`/api/profiles/${profileId}/nutrition/weeks/${planId}/items`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(item)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to add food item');
+    return data;
+  },
+
+  async deleteMealItem(profileId, planId, itemId) {
+    const res = await fetch(`/api/profiles/${profileId}/nutrition/weeks/${planId}/items/${itemId}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed to remove food item');
+    return res.json();
+  },
+
   // ── AI Analyzer ──────────────────────────────────────────────────────────
 
   async analyzeAI(profileId, scope, date, regenerate = false) {

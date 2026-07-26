@@ -6,7 +6,12 @@
  * clicks "Apply" — that flips the `googtrans` cookie Google Translate reads
  * on load and reloads the page. Not auto-re-applied silently on every
  * login: a surprise reload on login would be worse than asking once.
+ *
+ * Wrapped in an IIFE — see weekBuilder.js's header comment for why: plain
+ * <script> tags share one global scope, so top-level consts here must not
+ * leak and risk colliding with another component file's identifiers.
  */
+(function () {
 
 /* global app, Storage */
 
@@ -148,3 +153,5 @@ app.component('SettingsPage', {
     </div>
   `
 });
+
+})();

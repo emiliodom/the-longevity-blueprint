@@ -6,7 +6,12 @@
  * navigation) in app.js, so a `pendingAutobuildGoalId` field there is
  * enough of a signal without introducing a separate state-management
  * library. See app.js and weekBuilder.js for the other side of this.
+ *
+ * Wrapped in an IIFE — see weekBuilder.js's header comment for why: plain
+ * <script> tags share one global scope, so top-level consts here must not
+ * leak and risk colliding with another component file's identifiers.
  */
+(function () {
 
 /* global app, Storage */
 
@@ -175,3 +180,5 @@ app.component('GoalDashboard', {
     </div>
   `
 });
+
+})();

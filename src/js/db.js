@@ -401,6 +401,13 @@ const DB = [
     content: [
       { type: 'paragraph', text: 'Manage your password, see your current daily upload/AI usage against the account-wide limits, and set your preferred language and theme.' }
     ]
+  },
+  {
+    id: 29, icon: '🍽️', title: 'Food Planner',
+    isNutrition: true, hero: '',
+    content: [
+      { type: 'paragraph', text: 'Plan meals for the week from common Guatemalan staples and see calories/macros against your daily target — 2,100 kcal Mon–Sat, 2,800 kcal Sunday, 1.6g/kg protein.' }
+    ]
   }
 ];
 
@@ -412,5 +419,6 @@ const NAV_GROUPS = [
   { label: 'Reference',        pages: DB.filter(p => [23,24].includes(p.id)) },
   { label: 'System',           pages: DB.filter(p => [20,21].includes(p.id)) },
   { label: 'Training Builder', pages: DB.filter(p => [25,26,27].includes(p.id)) },
+  { label: 'Planner',          pages: DB.filter(p => [29].includes(p.id)) },
   { label: 'Account',          pages: DB.filter(p => [28].includes(p.id)) }
 ];

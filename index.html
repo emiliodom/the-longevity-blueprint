@@ -478,7 +478,7 @@
         <!-- Right side controls -->
         <div class="flex items-center gap-2 flex-shrink-0 ml-3">
           <!-- PDF export (only on content pages with calculators — the Week Builder has its own server-rendered PDF export) -->
-          <button v-if="!currentPage.isDashboard && !currentPage.isJournal && !currentPage.isTrainingBuilder && !currentPage.isGoals && !currentPage.isTracker && !currentPage.isSettings"
+          <button v-if="!currentPage.isDashboard && !currentPage.isJournal && !currentPage.isTrainingBuilder && !currentPage.isGoals && !currentPage.isTracker && !currentPage.isSettings && !currentPage.isNutrition"
                   @click="exportPDF"
                   class="pdf-btn no-print"
                   title="Export this page as PDF">
@@ -709,6 +709,15 @@
         </div>
         <!-- END SETTINGS -->
 
+        <!-- ── FOOD PLANNER (page 29) ──────────────────────────────────── -->
+        <div v-else-if="currentPage.isNutrition" class="space-y-6">
+          <div class="prose-custom">
+            <p v-for="(item, i) in currentPage.content" :key="i" v-html="item.text"></p>
+          </div>
+          <food-planner :profile="profile"></food-planner>
+        </div>
+        <!-- END FOOD PLANNER -->
+
         <!-- ── CONTENT PAGES ──────────────────────────────────────────── -->
         <div v-else class="space-y-6 prose-custom">
           <template v-for="(item, i) in currentPage.content" :key="i">
@@ -783,7 +792,8 @@
     9. aiAnalyzer.js        — register AiAnalyzer (used inside DailyTracker)
    10. dailyTracker.js      — register DailyTracker
    11. settingsPage.js      — register SettingsPage
-   12. app.mount()          — wire everything
+   12. foodPlanner.js       — register FoodPlanner
+   13. app.mount()          — wire everything
 -->
 <script src="src/js/db.js"></script>
 <script src="src/js/storage.js"></script>
@@ -796,6 +806,7 @@
 <script src="src/js/components/aiAnalyzer.js"></script>
 <script src="src/js/components/dailyTracker.js"></script>
 <script src="src/js/components/settingsPage.js"></script>
+<script src="src/js/components/foodPlanner.js"></script>
 <script>app.mount('#app');</script>
 
 </body>

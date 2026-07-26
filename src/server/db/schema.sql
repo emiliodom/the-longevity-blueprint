@@ -126,6 +126,31 @@ CREATE TABLE IF NOT EXISTS tracker_screenshots (
   INDEX idx_screenshots_tracker (tracker_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Calorie & Food Planner — food items themselves are static content
+-- (src/server/lib/foods.js, referenced here only by string id), not a table.
+CREATE TABLE IF NOT EXISTS meal_plans (
+  id              VARCHAR(36) PRIMARY KEY,
+  profile_id      VARCHAR(36) NOT NULL,
+  week_start_date DATE        NOT NULL,  -- Monday of the week
+  created_at      DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_meal_plans_profile FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE CASCADE,
+  UNIQUE KEY uniq_profile_meal_week (profile_id, week_start_date),
+  INDEX idx_meal_plans_profile (profile_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS meal_plan_items (
+  id           VARCHAR(36)   PRIMARY KEY,
+  meal_plan_id VARCHAR(36)   NOT NULL,
+  day_of_week  TINYINT       NOT NULL,  -- 0=Mon .. 6=Sun
+  meal_slot    VARCHAR(16)   NOT NULL,  -- breakfast | lunch | dinner | snack
+  food_id      VARCHAR(64)   NOT NULL,  -- references FOOD_TEMPLATES id (static content, not a FK)
+  grams        DECIMAL(7,1)  NOT NULL,
+  sort_order   INT           NOT NULL DEFAULT 0,
+  created_at   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_meal_items_plan FOREIGN KEY (meal_plan_id) REFERENCES meal_plans(id) ON DELETE CASCADE,
+  INDEX idx_meal_items_plan (meal_plan_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Per-account usage quotas ("wall it so no one exhausts the app") — one row
 -- per actual attempt (a screenshot uploaded, a real OpenAI call made). See
 -- src/server/lib/quota.js. Deliberately a durable DB table, not an in-memory

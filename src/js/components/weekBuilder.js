@@ -10,7 +10,16 @@
  * from the server and re-initializes Sortable instances. This trades a
  * little UI snappiness for a single source of truth — Vue's DOM and
  * Sortable's DOM never fight over ordering.
+ *
+ * Wrapped in an IIFE: this is a plain <script> tag, not an ES module, so
+ * every top-level `const`/`function` here would otherwise land in the
+ * same global scope as every other component file — a `const` collision
+ * (e.g. two files both declaring DAY_LABELS) throws and silently aborts
+ * that whole script; a `function` collision just gets overwritten with no
+ * warning. The IIFE keeps everything below private except the
+ * `app.component(...)` registration, which is the actual public contract.
  */
+(function () {
 
 /* global app, Sortable, Storage, BlockStyleConfig */
 
@@ -296,3 +305,5 @@ app.component('WeekBuilder', {
     </div>
   `
 });
+
+})();

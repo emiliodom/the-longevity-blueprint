@@ -75,6 +75,7 @@ app.use('/api/profiles/:id/dashboard',    require('./src/server/routes/dashboard
 app.use('/api/profiles/:id/log',          require('./src/server/routes/log'));
 app.use('/api/profiles/:id/goals',        require('./src/server/routes/goals'));
 app.use('/api/profiles/:id/training',     require('./src/server/routes/training'));
+app.use('/api/profiles/:id/nutrition',    require('./src/server/routes/nutrition'));
 app.use('/api/profiles/:id/tracker',      require('./src/server/routes/tracker'));
 app.use('/api/profiles/:id/ai',           require('./src/server/routes/ai'));
 

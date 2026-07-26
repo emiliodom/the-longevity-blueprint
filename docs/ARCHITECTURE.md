@@ -23,7 +23,17 @@ src/
         ├── goalDashboard.js     — GoalDashboard: milestone CRUD + "Build Week" handoff
         ├── dailyTracker.js      — DailyTracker: Strava link + screenshots, embeds AiAnalyzer
         ├── aiAnalyzer.js        — AiAnalyzer: day/week/month OpenAI summary panel
-        └── settingsPage.js      — SettingsPage: password, usage quotas, language, theme
+        ├── settingsPage.js      — SettingsPage: password, usage quotas, language, theme
+        └── foodPlanner.js       — FoodPlanner: Guatemalan-food weekly meal planner vs daily calorie/macro target
+
+Every file under components/ wraps its body in an IIFE. These are plain
+`<script>` tags, not ES modules — they all share one global scope, so a
+top-level `const`/`function` in one file can collide with another's. A
+`const` collision throws and silently aborts that whole script (this
+actually happened once — see git history); a `function` collision just
+gets silently overwritten. The IIFE keeps each file's helpers private;
+only the `app.component(...)` registration (or `window.BlockStyleConfig`,
+for the one non-component file) is the deliberate, public surface.
 
 src/server/                       — backend, one small file per concern
 ├── db/
@@ -40,6 +50,8 @@ src/server/                       — backend, one small file per concern
 │   ├── quota.js                    — durable per-account usage quotas (uploads, AI calls) — usage_events table
 │   ├── validation.js                — shared input validation (password policy)
 │   ├── pexels.js                    — Pexels photo search + 24h in-memory cache, server-side key only
+│   ├── foods.js                      — FOOD_TEMPLATES: Guatemalan food macro data (static content, not user data)
+│   ├── nutritionTargets.js           — daily calorie/macro target (mirrors calculators.js formulas + db.js's 2,100/2,800 kcal protocol)
 │   └── exporters/
 │       ├── shared.js               — date/sort helpers shared by all 3 exporters
 │       ├── csv.js                  — week → CSV text
@@ -55,7 +67,8 @@ src/server/                       — backend, one small file per concern
     ├── training.js                     — Week Builder: weeks/blocks CRUD, autobuild, CSV/ICS/PDF export
     ├── tracker.js                       — Daily Tracker: Strava link + screenshot upload
     ├── ai.js                             — POST .../ai/analyze (day/week/month, cached)
-    └── images.js                          — GET /api/images/hero (Pexels-backed, graceful null fallback)
+    ├── images.js                          — GET /api/images/hero (Pexels-backed, graceful null fallback)
+    └── nutrition.js                        — Food Planner: foods list, meal-plan weeks/items, computed macros/targets
 
 docs/
 ├── ARCHITECTURE.md               — this file
@@ -112,6 +125,7 @@ users ──< profiles ──< dashboards (1:1)
                    ├──< goals ──< training_weeks (optional link)
                    ├──< training_weeks ──< training_blocks
                    ├──< daily_trackers ──< tracker_screenshots
+                   ├──< meal_plans ──< meal_plan_items
                    └──< ai_analyses
 ```
 
@@ -151,9 +165,17 @@ The 22 content pages each carry a `heroQuery` string in `db.js` (e.g. `'mountain
 
 ---
 
+## Food Planner (lib/foods.js, lib/nutritionTargets.js, routes/nutrition.js)
+
+`FOOD_TEMPLATES` is a ~24-item Guatemalan food database (macros per 100g), deliberately limited to everyday staples already referenced in db.js pages 5/6 — not an exhaustive international food database. `meal_plans`/`meal_plan_items` store only `food_id` (a string reference into that static list, not a foreign key) + `grams` per (day, meal slot) — every macro number is computed server-side on read (`macrosFor()` in foods.js), so retuning a food's macro data in foods.js takes effect everywhere immediately, no migration needed.
+
+The daily calorie/macro target line isn't a new nutrition philosophy — `nutritionTargets.js` reimplements the exact formulas already in `calculators.js` (BMR via Mifflin-St Jeor, protein at 1.6g/kg, fat at 22%) and the exact protocol already stated in db.js pages 3/6 (2,100 kcal Mon–Sat, 2,800 kcal Sunday surplus), just exposed server-side as a per-day-of-week target for the planner to compare against.
+
+---
+
 ## New pages (frontend)
 
-Week Builder / Goal Dashboard / Daily Tracker / Settings are page ids **25, 26, 27, 28** in `src/js/db.js`, flagged `isTrainingBuilder` / `isGoals` / `isTracker` / `isSettings` respectively — the same pattern as the existing `isDashboard` (page 20) / `isJournal` (page 21) pages. `index.html`'s main-content `v-else-if` chain and `app.js`'s generic top-bar PDF button (`exportPDF()` / `window.print()`) both exclude all four, since the Week Builder has its own server-rendered PDF/CSV/ICS export toolbar instead and the other three don't need print export at all.
+Week Builder / Goal Dashboard / Daily Tracker / Settings / Food Planner are page ids **25–29** in `src/js/db.js`, flagged `isTrainingBuilder` / `isGoals` / `isTracker` / `isSettings` / `isNutrition` respectively — the same pattern as the existing `isDashboard` (page 20) / `isJournal` (page 21) pages. `index.html`'s main-content `v-else-if` chain and `app.js`'s generic top-bar PDF button (`exportPDF()` / `window.print()`) both exclude all five, since the Week Builder has its own server-rendered PDF/CSV/ICS export toolbar instead and the others don't need print export at all.
 
 ## Settings page (settingsPage.js, routes/account.js)
 

@@ -682,3 +682,18 @@ html.light-mode code.text-sky-400 {
   color:         var(--c-text2);
   white-space:   pre-wrap;
 }
+
+/* ── Food Planner ─────────────────────────────────────────────────────────── */
+.day-overview-pill {
+  display:        flex;
+  flex-direction: column;
+  align-items:    center;
+  gap:            .1rem;
+  padding:        .4rem .2rem;
+  border-radius:  .5rem;
+  border:         1px solid var(--c-border);
+  background:     var(--c-surface);
+  transition:     border-color .15s;
+}
+.day-overview-pill:hover  { border-color: var(--c-accent); }
+.day-overview-active      { border-color: var(--c-accent); background: var(--c-surface3); }

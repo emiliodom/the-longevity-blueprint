@@ -8,7 +8,13 @@
  * or style.css. Adding a new block category (see lib/templates.js on the
  * server) only needs an entry in BLOCK_CATEGORY_STYLE to render correctly
  * everywhere: palette, board card, and drag ghost.
+ *
+ * Wrapped in an IIFE — see weekBuilder.js's header comment for why: plain
+ * <script> tags share one global scope, so the consts below must not leak
+ * globally themselves — only the final `window.BlockStyleConfig` is the
+ * intentional, deliberate global.
  */
+(function () {
 
 // Palette/board order is the object's key order. `accent` drives the
 // left-border color via a CSS custom property (--block-accent) — see
@@ -77,3 +83,5 @@ function sortableOptions(extra = {}) {
 document.documentElement.style.setProperty('--block-ghost-opacity', BLOCK_DRAG_CONFIG.ghostOpacity);
 
 window.BlockStyleConfig = { BLOCK_CATEGORY_STYLE, BLOCK_CARD_LAYOUT, BLOCK_DRAG_CONFIG, categoryStyle, cardInlineStyle, sortableOptions };
+
+})();
