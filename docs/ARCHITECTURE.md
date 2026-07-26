@@ -117,7 +117,7 @@ users ──< profiles ──< dashboards (1:1)
 
 All child tables have `ON DELETE CASCADE` back to `profiles` (and `profiles` cascades from `users`) — deleting a profile or user cleans up everything without app-level cleanup code. `training_weeks.goal_id` is `ON DELETE SET NULL` — deleting a goal un-links its week rather than deleting the week.
 
-Goal/block **templates** (5K, weight target, Zone 2 run, Workout A/B, etc.) are plain JS config in `src/server/lib/templates.js`, not a table — they're editable content, not user data, mirroring how `src/js/db.js`'s `DB` array holds page content.
+Goal/block **templates** are plain JS config in `src/server/lib/templates.js`, not a table — they're editable content, not user data, mirroring how `src/js/db.js`'s `DB` array holds page content. They span 8 block categories (run, trail, weights, calisthenics, cycling, swimming, boxing, stretch) and ~20 goal templates across running/trail, natural bodyweight progression (r/bodyweightfitness-style, deliberately not bodybuilding), cycling (FTP/Coggan zones), swimming (Critical Swim Speed), and amateur boxing conditioning — see the file's header comment for the evidentiary basis of each. New categories need only a `BLOCK_CATEGORY_STYLE` entry in `blockStyleConfig.js` to render correctly — no CSS changes.
 
 ---
 
@@ -131,7 +131,7 @@ Sync strategy: **every** drag operation (drop from palette, move to another day,
 
 ## Auto-build (lib/autobuild.js)
 
-Deterministic and rules-based — **not** an AI feature. Given a goal's `target_date` and a week's start date, it computes weeks-remaining and generates a fixed weekly pattern (daily Zone 2 run, Mon/Thu Workout A, Tue/Fri Workout B, Wed interval → tempo in the final 4 weeks, Sat long run that ramps up, Sun long ride, daily heel-rehab stretch). Calling it again **replaces** the week's current blocks — this is intentional (a reset), not a merge.
+Deterministic and rules-based — **not** an AI feature. `GOAL_TYPE_DOMAIN` maps every `goal_type` to one of 6 domains (running, trail, calisthenics, cycling, swimming, boxing) plus a `general` fallback for weight/lift_pr goals or no goal at all — each domain has its own `build*Week()` function producing a week actually built around that sport, not a running week with the label changed (e.g. a calisthenics goal gets a push/pull/leg/skill split, a swim goal gets CSS-based interval sets). The original running-only logic (weeks-remaining → specificity phase, ramping long run) lives on as `buildRunningWeek`. Every domain still gets a daily heel-rehab/mobility stretch block, and — unless running/trail specificity IS the goal — a short daily maintenance Zone 2 run, since the app's core premise is a daily cardio streak regardless of the active goal. Calling auto-build **replaces** the week's current blocks — intentional (a reset), not a merge.
 
 ## Goal Dashboard → Week Builder handoff
 
