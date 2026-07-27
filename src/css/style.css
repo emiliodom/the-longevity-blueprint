@@ -571,12 +571,27 @@ html.light-mode code.text-sky-400 {
 }
 
 /* ── Week Training Builder ────────────────────────────────────────────────── */
+/* Horizontal, wrapping palette — flex-wrap keeps every item and category
+   header as a flat direct child (required by SortableJS, see weekBuilder.js's
+   comment on initSortables()), while each header's `.basis-full` (Tailwind
+   utility, applied in the template) forces a line break so categories still
+   read as visually distinct rows without needing a wrapper element. */
+.palette-row {
+  display:     flex;
+  flex-wrap:   wrap;
+  align-items: center;
+  gap:         .4rem .5rem;
+}
+.palette-category-header { margin-top: .5rem; }
+.palette-row > .palette-category-header:first-child { margin-top: 0; }
+
 .palette-item {
   display:       flex;
   align-items:   center;
   gap:           .4rem;
   padding:       .5rem .6rem;
-  margin-bottom: .4rem;
+  flex:          0 1 220px;
+  min-width:     180px;
   border-radius: .5rem;
   border:        1px solid var(--c-border);
   background:    var(--c-surface);
@@ -716,6 +731,20 @@ html.light-mode code.text-sky-400 {
 .exercise-badge-beginner     { background: #34d399; }
 .exercise-badge-intermediate { background: #fbbf24; }
 .exercise-badge-advanced     { background: #f87171; }
+
+.exercise-select-btn {
+  flex-shrink:   0;
+  font-size:     .7rem;
+  font-weight:   600;
+  color:         var(--c-accent);
+  background:    rgba(56,189,248,.1);
+  border:        1px solid var(--c-accent);
+  border-radius: .4rem;
+  padding:       .2rem .5rem;
+  white-space:   nowrap;
+  transition:    background .15s;
+}
+.exercise-select-btn:hover { background: rgba(56,189,248,.2); }
 
 /* ── Goal Dashboard ───────────────────────────────────────────────────────── */
 .goal-card {

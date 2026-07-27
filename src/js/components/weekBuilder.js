@@ -187,14 +187,25 @@ app.component('WeekBuilder', {
     },
 
     // ── Detail modal ─────────────────────────────────────────────────────
+    // blockId is only set when opened from an already-placed block — that's
+    // what selectExercise() needs to know it has something to replace.
+    // Opening from a palette template (not yet on a day) is reference-only.
     openTemplateDetail(t) {
-      this.detailItem = { title: t.label, icon: t.icon, durationMin: t.defaultDurationMin, category: t.category };
+      this.detailItem = { title: t.label, icon: t.icon, durationMin: t.defaultDurationMin, category: t.category, blockId: null };
     },
     openBlockDetail(block) {
-      this.detailItem = { title: block.title, icon: this.blockIcon(block), durationMin: block.durationMin, category: block.blockType };
+      this.detailItem = { title: block.title, icon: this.blockIcon(block), durationMin: block.durationMin, category: block.blockType, blockId: block.id };
     },
     closeDetail() {
       this.detailItem = null;
+    },
+    async selectExercise(ex) {
+      if (!this.detailItem?.blockId) return;
+      await Storage.updateBlock(this.profile.id, this.week.id, this.detailItem.blockId, {
+        title: ex.name, details: { exerciseId: ex.id }
+      });
+      this.closeDetail();
+      await this.loadWeek();
     },
 
     // ── Drag and drop wiring ────────────────────────────────────────────
@@ -285,29 +296,28 @@ app.component('WeekBuilder', {
         </div>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-4">
-        <!-- Palette -->
-        <div class="module-card">
-          <h3 class="text-sky-400 font-semibold text-xs uppercase tracking-wider mb-1">Drag a block onto a day</h3>
-          <p class="text-xs text-slate-500 mb-3">Or tap a block, then tap a day — works without a mouse.</p>
-          <div ref="palette" class="space-y-1">
-            <template v-for="(items, cat) in templatesByCategory" :key="cat">
-              <div class="text-xs text-slate-500 font-medium mt-3 mb-1 palette-category-header">{{ categoryLabel(cat) }}</div>
-              <div v-for="t in items" :key="t.id" :data-template-id="t.id"
-                   @click="selectTemplate(t)" :style="cardStyle(t.category)"
-                   class="palette-item" :class="selectedTemplateId === t.id ? 'palette-item-selected' : ''">
-                <span>{{ t.icon }}</span>
-                <span class="flex-1 min-w-0 truncate">{{ t.label }}</span>
-                <span class="text-xs text-slate-500">{{ t.defaultDurationMin }}m</span>
-                <button @click.stop="openTemplateDetail(t)" class="palette-item-info" title="More info">ⓘ</button>
-              </div>
-            </template>
-          </div>
+      <!-- Palette — horizontal, above the board, so the board gets full width -->
+      <div class="module-card">
+        <h3 class="text-sky-400 font-semibold text-xs uppercase tracking-wider mb-1">Drag a block onto a day</h3>
+        <p class="text-xs text-slate-500 mb-3">Or tap a block, then tap a day — works without a mouse.</p>
+        <div ref="palette" class="palette-row">
+          <template v-for="(items, cat) in templatesByCategory" :key="cat">
+            <div class="text-xs text-slate-500 font-medium palette-category-header basis-full">{{ categoryLabel(cat) }}</div>
+            <div v-for="t in items" :key="t.id" :data-template-id="t.id"
+                 @click="selectTemplate(t)" :style="cardStyle(t.category)"
+                 class="palette-item" :class="selectedTemplateId === t.id ? 'palette-item-selected' : ''">
+              <span>{{ t.icon }}</span>
+              <span class="flex-1 min-w-0 truncate">{{ t.label }}</span>
+              <span class="text-xs text-slate-500">{{ t.defaultDurationMin }}m</span>
+              <button @click.stop="openTemplateDetail(t)" class="palette-item-info" title="More info">ⓘ</button>
+            </div>
+          </template>
         </div>
+      </div>
 
-        <!-- Day board — wraps as cards rather than forcing 7 cramped columns -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
-          <div v-for="(label, dayIndex) in DAY_LABELS" :key="dayIndex" class="day-column">
+      <!-- Day board — wraps as cards rather than forcing 7 cramped columns -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-3">
+        <div v-for="(label, dayIndex) in DAY_LABELS" :key="dayIndex" class="day-column">
             <div class="day-column-header">
               <div class="font-semibold text-xs text-white">{{ label }}</div>
               <div class="text-[10px] text-slate-500">{{ dayLabel(dayIndex) }}</div>
@@ -329,7 +339,6 @@ app.component('WeekBuilder', {
               + Add {{ selectedTemplate.label }}
             </button>
             <p v-else-if="!dayBlocks(dayIndex).length" class="day-column-empty">Drop here</p>
-          </div>
         </div>
       </div>
 
@@ -341,7 +350,9 @@ app.component('WeekBuilder', {
             <button @click="closeDetail" class="text-slate-500 hover:text-red-400 text-sm flex-shrink-0">✕</button>
           </div>
           <p class="text-xs text-slate-500 mb-3">{{ categoryLabel(detailItem.category) }} · {{ detailItem.durationMin || '?' }} min</p>
-          <p class="text-xs text-slate-500 font-medium uppercase tracking-wider mb-2">Exercises to draw from</p>
+          <p class="text-xs text-slate-500 font-medium uppercase tracking-wider mb-2">
+            {{ detailItem.blockId ? 'Pick one to replace this block' : 'Exercises to draw from' }}
+          </p>
           <div class="detail-modal-list">
             <div v-for="ex in detailExercises" :key="ex.id" class="exercise-row">
               <div class="flex items-start justify-between gap-2">
@@ -349,7 +360,10 @@ app.component('WeekBuilder', {
                 <span class="exercise-badge" :class="'exercise-badge-' + ex.difficulty">{{ ex.difficulty }}</span>
               </div>
               <p class="text-xs text-slate-400 leading-relaxed mt-0.5">{{ ex.description }}</p>
-              <p class="text-[11px] text-slate-500 mt-1">{{ ex.dosage }} · {{ ex.equipment }}</p>
+              <div class="flex items-end justify-between gap-2 mt-1">
+                <p class="text-[11px] text-slate-500">{{ ex.dosage }} · {{ ex.equipment }}</p>
+                <button v-if="detailItem.blockId" @click="selectExercise(ex)" class="exercise-select-btn">Use this →</button>
+              </div>
             </div>
             <p v-if="!detailExercises.length" class="text-xs text-slate-500">No exercises catalogued for this category yet.</p>
           </div>
