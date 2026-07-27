@@ -91,7 +91,7 @@ function sortableOptions(extra = {}) {
     // for that — otherwise Sortable still calls preventDefault() on the
     // filtered element's initiating touch, which can suppress the
     // browser's synthesized click on mobile.
-    filter:          ['.palette-item-info', '.block-card-info', extra.filter].filter(Boolean).join(', '),
+    filter:          ['.palette-item-info', '.block-card-action-btn', extra.filter].filter(Boolean).join(', '),
     preventOnFilter: false
   };
 }

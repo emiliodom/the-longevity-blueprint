@@ -630,8 +630,7 @@ html.light-mode code.text-sky-400 {
    not a fixed rule per category, so new sports/categories need no CSS edit. */
 .palette-item { border-left: 3px solid var(--block-accent, var(--c-border)); }
 
-.palette-item-info,
-.block-card-info {
+.palette-item-info {
   flex-shrink:   0;
   font-size:     1.05rem;
   color:         var(--c-subtle);
@@ -640,8 +639,7 @@ html.light-mode code.text-sky-400 {
   border-radius: .3rem;
   transition:    background .15s, color .15s;
 }
-.palette-item-info:hover,
-.block-card-info:hover {
+.palette-item-info:hover {
   color:      var(--c-accent);
   background: rgba(56,189,248,.12);
 }
@@ -709,6 +707,74 @@ html.light-mode code.text-sky-400 {
 /* Same --block-accent pattern as .palette-item, above. */
 .block-card { border-left: 3px solid var(--block-accent, var(--c-border)); }
 .block-ghost { opacity: var(--block-ghost-opacity, .4); }
+
+/* Footer button bar, not icons overlaid on the title row — those were both
+   hard to tell apart from the drag handle at a glance and (before the
+   touch-filter fix elsewhere) prone to being captured as a drag gesture on
+   mobile. A row below the title, spatially separate from where you'd grab
+   the card to drag it, is both clearer and safer to tap. */
+.block-card-actions {
+  display:    flex;
+  gap:        .35rem;
+  margin-top: .4rem;
+}
+.block-card-action-btn {
+  flex:          1;
+  font-size:     .68rem;
+  padding:       .3rem .4rem;
+  border-radius: .35rem;
+  background:    var(--c-surface2);
+  color:         var(--c-text2);
+  border:        1px solid var(--c-border);
+  text-align:    center;
+  transition:    border-color .15s, color .15s;
+}
+.block-card-action-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
+.block-card-action-btn-danger { flex: 0 0 auto; padding-left: .6rem; padding-right: .6rem; }
+.block-card-action-btn-danger:hover { border-color: #f87171; color: #f87171; }
+
+/* ── Month view (read-only calendar overview) ─────────────────────────────── */
+.month-grid-weekdays,
+.month-grid-row {
+  display:               grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap:                   .4rem;
+}
+.month-grid-weekdays { margin-bottom: .4rem; }
+.month-grid-row { margin-bottom: .4rem; }
+.month-grid-weekday-label {
+  text-align:     center;
+  font-size:      .65rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color:          var(--c-subtle);
+}
+.month-grid-cell {
+  aspect-ratio:  1;
+  display:       flex;
+  flex-direction:column;
+  align-items:   center;
+  justify-content:center;
+  gap:           .2rem;
+  border-radius: .5rem;
+  border:        1px solid var(--c-border);
+  background:    var(--c-surface);
+  color:         var(--c-text2);
+  font-size:     .75rem;
+  transition:    border-color .15s;
+}
+.month-grid-cell:hover      { border-color: var(--c-accent); }
+.month-grid-cell-outside    { opacity: .35; }
+.month-grid-date            { font-weight: 600; }
+.month-grid-count {
+  font-size:     .65rem;
+  font-weight:   700;
+  color:         #04121a;
+  background:    var(--c-accent);
+  border-radius: 999px;
+  padding:       0 .4rem;
+  line-height:   1.3;
+}
 
 /* ── Week Builder detail modal ───────────────────────────────────────────── */
 .detail-modal-backdrop {
