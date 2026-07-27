@@ -50,7 +50,13 @@ const BLOCK_DRAG_CONFIG = {
   // Pointer-based dragging instead of native HTML5 DnD — avoids native DnD's
   // inconsistent drag-image rendering and friction with fixed/sticky
   // ancestors (this layout has both), and works uniformly across mouse and touch.
-  forceFallback:  true
+  forceFallback:  true,
+  // A touch-scroll gesture starts with the exact same touchstart/touchmove
+  // as a drag — without a delay, swiping to scroll past a block on mobile
+  // could get misread as picking it up and dropping it on another day.
+  // delayOnTouchOnly keeps mouse/desktop dragging instant (no delay there).
+  touchDelayMs:          150,
+  touchStartThresholdPx: 5
 };
 
 function categoryStyle(category) {
@@ -68,12 +74,25 @@ function cardInlineStyle(category) {
 
 function sortableOptions(extra = {}) {
   return {
-    animation:      BLOCK_DRAG_CONFIG.animationMs,
-    swapThreshold:  BLOCK_DRAG_CONFIG.swapThreshold,
-    invertSwap:     BLOCK_DRAG_CONFIG.invertSwap,
-    forceFallback:  BLOCK_DRAG_CONFIG.forceFallback,
-    ghostClass:     'block-ghost',
-    ...extra
+    animation:            BLOCK_DRAG_CONFIG.animationMs,
+    swapThreshold:        BLOCK_DRAG_CONFIG.swapThreshold,
+    invertSwap:           BLOCK_DRAG_CONFIG.invertSwap,
+    forceFallback:        BLOCK_DRAG_CONFIG.forceFallback,
+    delay:                BLOCK_DRAG_CONFIG.touchDelayMs,
+    delayOnTouchOnly:     true,
+    touchStartThreshold:  BLOCK_DRAG_CONFIG.touchStartThresholdPx,
+    ghostClass:           'block-ghost',
+    ...extra,
+    // Elements matching `filter` are excluded from initiating a drag —
+    // merged (not overwritten) with any selector a caller passed in `extra`
+    // (e.g. category headers), so the ⓘ info buttons are always excluded
+    // everywhere a tap should reach its click handler instead of being
+    // captured as a drag/touch gesture. preventOnFilter:false is required
+    // for that — otherwise Sortable still calls preventDefault() on the
+    // filtered element's initiating touch, which can suppress the
+    // browser's synthesized click on mobile.
+    filter:          ['.palette-item-info', '.block-card-info', extra.filter].filter(Boolean).join(', '),
+    preventOnFilter: false
   };
 }
 
