@@ -271,6 +271,15 @@ html.light-mode .hero::after {
   color:        var(--c-subtle);
   border-color: var(--c-border);
 }
+/* Generic active state for pill-btn usages that aren't the workout-type
+   filter above (e.g. Sprint Timer's category/sound/voice toggles) — placed
+   after the fallback rule above so it wins the cascade tie at equal
+   specificity instead of being overridden by it. */
+.pill-btn-active {
+  background:   rgba(56,189,248,.15);
+  color:        var(--c-accent);
+  border-color: var(--c-accent);
+}
 
 /* ── Prose (content pages) ────────────────────────────────────────────────── */
 .prose-custom p      { margin-bottom: 1.1rem; line-height: 1.75; color: var(--c-text2); }
@@ -774,6 +783,79 @@ html.light-mode code.text-sky-400 {
   background:    var(--c-accent);
   border-radius: 999px;
   transition:    width .3s;
+}
+
+/* ── Sprint Timer ──────────────────────────────────────────────────────────
+   Deliberately huge — meant to be glanced at (or just heard) mid-run/ride/
+   swim, not read carefully. Full-bleed phase color, not just a small badge,
+   so it registers in peripheral vision at a distance. */
+.timer-preset-card {
+  text-align:    left;
+  padding:       .75rem .9rem;
+  border-radius: .6rem;
+  border:        1px solid var(--c-border);
+  background:    var(--c-surface);
+  transition:    border-color .15s;
+}
+.timer-preset-card:hover     { border-color: var(--c-accent); }
+.timer-preset-card-selected  { border-color: var(--c-accent); box-shadow: 0 0 0 2px rgba(56,189,248,.35); }
+
+.timer-big-card {
+  border-radius: 1.25rem;
+  padding:       2rem 1.5rem;
+  text-align:    center;
+  transition:    background-color .3s;
+}
+.timer-phase-work { background: rgba(52,211,153,.15); }
+.timer-phase-rest { background: rgba(251,191,36,.15); }
+.timer-phase-done { background: rgba(56,189,248,.15); }
+
+.timer-phase-label {
+  font-size:      clamp(1.5rem, 6vw, 2.5rem);
+  font-weight:    800;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+.timer-phase-work .timer-phase-label { color: #34d399; }
+.timer-phase-rest .timer-phase-label { color: #fbbf24; }
+.timer-phase-done .timer-phase-label { color: #38bdf8; }
+
+.timer-display {
+  font-size:   clamp(4rem, 22vw, 10rem);
+  font-weight: 800;
+  line-height: 1;
+  color:       var(--c-text);
+  font-variant-numeric: tabular-nums;
+}
+.timer-round-label {
+  font-size: clamp(1rem, 3vw, 1.4rem);
+  color:     var(--c-text2);
+  margin-top: .5rem;
+}
+.timer-controls {
+  display:        flex;
+  gap:            .75rem;
+  justify-content:center;
+  margin-top:     1.5rem;
+  flex-wrap:      wrap;
+}
+.timer-control-btn {
+  padding:       1rem 2rem;
+  font-size:     1.25rem;
+  font-weight:   700;
+  border-radius: 1rem;
+  background:    var(--c-accent);
+  color:         #04121a;
+  border:        none;
+  cursor:        pointer;
+  transition:    opacity .15s;
+  min-width:     9rem;
+}
+.timer-control-btn:hover { opacity: .85; }
+.timer-control-btn-secondary {
+  background: var(--c-surface2);
+  color:      var(--c-text2);
+  border:     1px solid var(--c-border);
 }
 
 /* ── Daily Tracker / AI Analyzer ──────────────────────────────────────────── */

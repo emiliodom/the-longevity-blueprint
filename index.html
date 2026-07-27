@@ -700,6 +700,15 @@
         </div>
         <!-- END DAILY TRACKER -->
 
+        <!-- ── SPRINT TIMER (page 31) ──────────────────────────────────── -->
+        <div v-else-if="currentPage.isSprintTimer" class="space-y-6">
+          <div class="prose-custom">
+            <p v-for="(item, i) in currentPage.content" :key="i" v-html="item.text"></p>
+          </div>
+          <sprint-timer :profile="profile"></sprint-timer>
+        </div>
+        <!-- END SPRINT TIMER -->
+
         <!-- ── SETTINGS (page 28) ──────────────────────────────────────── -->
         <div v-else-if="currentPage.isSettings" class="space-y-6">
           <div class="prose-custom">
@@ -800,10 +809,11 @@
     8. goalDashboard.js     — register GoalDashboard
     9. aiAnalyzer.js        — register AiAnalyzer (used inside DailyTracker)
    10. dailyTracker.js      — register DailyTracker
-   11. settingsPage.js      — register SettingsPage
-   12. foodPlanner.js       — register FoodPlanner
-   13. supplementStack.js   — register SupplementStack
-   14. app.mount()          — wire everything
+   11. sprintTimer.js       — register SprintTimer (needs BlockStyleConfig for category icons)
+   12. settingsPage.js      — register SettingsPage
+   13. foodPlanner.js       — register FoodPlanner
+   14. supplementStack.js   — register SupplementStack
+   15. app.mount()          — wire everything
 -->
 <script src="src/js/db.js"></script>
 <script src="src/js/storage.js"></script>
@@ -815,6 +825,7 @@
 <script src="src/js/components/goalDashboard.js"></script>
 <script src="src/js/components/aiAnalyzer.js"></script>
 <script src="src/js/components/dailyTracker.js"></script>
+<script src="src/js/components/sprintTimer.js"></script>
 <script src="src/js/components/settingsPage.js"></script>
 <script src="src/js/components/foodPlanner.js"></script>
 <script src="src/js/components/supplementStack.js"></script>

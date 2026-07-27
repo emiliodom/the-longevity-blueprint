@@ -4,6 +4,7 @@
  * API surface (new):
  *   GET    /api/training/block-templates
  *   GET    /api/training/exercises                                 — catalog for the block-detail modal
+ *   GET    /api/training/timer-presets                             — structured rounds/work/rest for the Sprint Timer
  *   GET    /api/profiles/:id/training/weeks
  *   GET    /api/profiles/:id/training/weeks/by-date/:weekStartDate — read-only; never creates a row (for Daily Tracker)
  *   POST   /api/profiles/:id/training/weeks                       — get-or-create by weekStartDate
@@ -27,6 +28,7 @@ const { query }              = require('../db/pool');
 const { requireAuth }        = require('../middleware/auth');
 const { BLOCK_TEMPLATES }    = require('../lib/templates');
 const { EXERCISE_TEMPLATES } = require('../lib/exercises');
+const { TIMER_PRESETS }      = require('../lib/timerPresets');
 const { buildWeekFromGoal }  = require('../lib/autobuild');
 const { buildCsv }           = require('../lib/exporters/csv');
 const { buildIcs }           = require('../lib/exporters/ics');
@@ -69,6 +71,9 @@ router.get('/block-templates', (_req, res) => res.json(BLOCK_TEMPLATES));
 
 // ── Exercise catalog (block-detail modal) ──────────────────────────────────
 router.get('/exercises', (_req, res) => res.json(EXERCISE_TEMPLATES));
+
+// ── Sprint/Interval Timer presets ──────────────────────────────────────────
+router.get('/timer-presets', (_req, res) => res.json(TIMER_PRESETS));
 
 // ── Weeks ────────────────────────────────────────────────────────────────
 router.get('/weeks', async (req, res) => {

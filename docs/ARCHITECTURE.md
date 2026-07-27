@@ -212,14 +212,24 @@ The daily calorie/macro target line isn't a new nutrition philosophy — `nutrit
 
 ## New pages (frontend)
 
-Week Builder / Goal Dashboard / Daily Tracker / Settings / Food Planner / Supplements are page ids **25–30** in `src/js/db.js`, flagged `isTrainingBuilder` / `isGoals` / `isTracker` / `isSettings` / `isNutrition` / `isSupplements` respectively — the same pattern as the existing `isDashboard` (page 20) / `isJournal` (page 21) pages. `index.html`'s main-content `v-else-if` chain and `app.js`'s generic top-bar PDF button (`exportPDF()` / `window.print()`) both exclude all six, since the Week Builder has its own server-rendered PDF/CSV/ICS export toolbar instead and the others don't need print export at all.
+Week Builder / Goal Dashboard / Daily Tracker / Settings / Food Planner / Supplements are page ids **25–30** in `src/js/db.js`, flagged `isTrainingBuilder` / `isGoals` / `isTracker` / `isSettings` / `isNutrition` / `isSupplements` respectively — the same pattern as the existing `isDashboard` (page 20) / `isJournal` (page 21) pages. `index.html`'s main-content `v-else-if` chain and `app.js`'s generic top-bar PDF button (`exportPDF()` / `window.print()`) both exclude all six, since the Week Builder has its own server-rendered PDF/CSV/ICS export toolbar instead and the others don't need print export at all. Sprint Timer (below) is page id **31**, `isSprintTimer`, added later and out of the 25–30 run — ids don't need to stay contiguous, `NAV_GROUPS` just filters by id.
+
+## Sprint/Interval Timer (sprintTimer.js, lib/timerPresets.js)
+
+A deliberately different content model from `lib/exercises.js`: that catalog's `dosage` field is free text for a human to read ("8-12 x 400m, 90s jog rest" mixes a distance with a duration — not parseable into a countdown). `TIMER_PRESETS` is fully structured (`rounds`/`workSec`/`restSec`) specifically so the timer can run a preset directly, and deliberately covers only the three split-based sports (run/cycling/swimming), not all 8 block categories. Picking a preset just pre-fills the editable rounds/work/rest fields — it's a starting point, not a locked-in config.
+
+**UI is deliberately oversized** — `.timer-display`'s countdown scales up to `10rem` (`clamp(4rem, 22vw, 10rem)`), the whole card fills with a solid phase color (`.timer-phase-work`/`-rest`/`-done`), not just a small badge. This is intentional: the tool is meant to be glanced at from arm's length (or further) mid-run/ride, not read up close.
+
+**Audio/voice cues, not just visual** — for the same reason (using it while moving, not staring at the phone): a Web Audio oscillator beep (`_beep()`, no asset files, matching this app's no-build-step approach elsewhere) on the last 3 seconds of each phase and on every phase transition, plus spoken "Go"/"Rest"/"Workout complete" cues via `SpeechSynthesis` when voice is enabled. Both, plus volume, persist to `localStorage` (`bp_timer_sound`/`bp_timer_voice`/`bp_timer_volume`) — same pattern as the other `bp_*` client-side prefs (see "Client-side persisted UI state" above).
+
+**Screen Wake Lock** (`navigator.wakeLock`, feature-detected, silently no-ops if unsupported/denied) is requested on start/resume and released on pause/reset — a phone screen dimming/locking mid-interval-set would defeat a tool meant to run untouched for minutes.
 
 ## Settings page (settingsPage.js, routes/account.js)
 
 Three independent concerns, one page:
 - **Password change** — `PUT /api/account/password` requires `currentPassword` (bcrypt-verified) before accepting `newPassword`, which goes through the same policy check as registration (`src/server/lib/validation.js`'s `passwordPolicyError`, shared so the two can't drift apart).
 - **Usage display** — reads `GET /api/account/usage` (see the quota section above) and renders the same `.goal-progress-track`/`.goal-progress-fill` bars the Goal Dashboard uses.
-- **Language preference** — `PUT /api/account/preferences` persists `users.preferred_language` (added via an `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` in `schema.sql` — see the comment there for why new columns on an already-shipped table need that instead of just editing the `CREATE TABLE`). Persisting it is separate from *applying* it: clicking "Apply" also sets the `googtrans` cookie Google Translate reads on load and reloads the page. It is deliberately **not** auto-re-applied on every login — an unexpected forced reload on login would be a worse experience than asking once.
+- **Language preference** — `PUT /api/account/preferences` persists `users.preferred_language` (added via an `ALTER TABLE ... ADD COLUMN` in `schema.sql`, applied separately from the `CREATE TABLE` batch — see that file's comment and the "Week Builder drag-and-drop" section above for why `IF NOT EXISTS` isn't used there). Persisting it is separate from *applying* it: clicking "Apply" also sets the `googtrans` cookie Google Translate reads on load and reloads the page. It is deliberately **not** auto-re-applied on every login — an unexpected forced reload on login would be a worse experience than asking once.
 - Theme toggle is also surfaced here for discoverability, but it's the same `darkMode`/`toggleTheme()` that already lived on the root instance (`$root.toggleTheme()`) — no new state.
 
 ---

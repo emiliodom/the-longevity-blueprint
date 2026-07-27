@@ -215,6 +215,12 @@ const Storage = {
     return res.json();
   },
 
+  async getTimerPresets(profileId) {
+    const res = await fetch(`/api/profiles/${profileId}/training/timer-presets`);
+    if (!res.ok) return [];
+    return res.json();
+  },
+
   // Read-only — never creates a week row, unlike ensureWeek(). For the
   // Daily Tracker showing what was planned for a date without seeding an
   // empty week for every date anyone ever views.

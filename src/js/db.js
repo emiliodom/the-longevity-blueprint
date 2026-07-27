@@ -1,7 +1,7 @@
 /**
  * db.js — Page Content Database
  *
- * All 21 pages of the Longevity Blueprint are defined here as plain data.
+ * All pages of the Longevity Blueprint are defined here as plain data.
  * To add a page: push a new object into DB and add it to the correct NAV_GROUP.
  * To edit content: find the page by id and modify its `content` array.
  *
@@ -396,6 +396,13 @@ const DB = [
     ]
   },
   {
+    id: 31, icon: '⏱️', title: 'Sprint Timer',
+    isSprintTimer: true, hero: '',
+    content: [
+      { type: 'paragraph', text: 'Pick a run, cycling, or swimming interval preset — or set your own rounds/work/rest — and run it with a giant on-screen countdown plus voice and beep cues, built for glancing at (or just listening to) mid-workout.' }
+    ]
+  },
+  {
     id: 28, icon: '⚙️', title: 'Settings',
     isSettings: true, hero: '',
     content: [
@@ -425,7 +432,7 @@ const NAV_GROUPS = [
   { label: 'Health',           pages: DB.filter(p => [16,17,18,19,22].includes(p.id)) },
   { label: 'Reference',        pages: DB.filter(p => [23,24].includes(p.id)) },
   { label: 'System',           pages: DB.filter(p => [20,21].includes(p.id)) },
-  { label: 'Training Builder', pages: DB.filter(p => [25,26,27].includes(p.id)) },
+  { label: 'Training Builder', pages: DB.filter(p => [25,26,27,31].includes(p.id)) },
   { label: 'Planner',          pages: DB.filter(p => [29,30].includes(p.id)) },
   { label: 'Account',          pages: DB.filter(p => [28].includes(p.id)) }
 ];
