@@ -15,6 +15,7 @@ src/
 └── js/                          — frontend, Vue 3 via CDN, no build step
     ├── db.js                    — DB[] page content array + NAV_GROUPS (sidebar)
     ├── storage.js                — Storage: the only object that calls fetch()
+    ├── data/timerPhrases.json    — getReady/pushThrough voice+popup phrase pools for sprintTimer.js (plain static JSON, no server route — fetched straight off the /src static mount)
     └── components/
         ├── calculators.js       — 9 biometric calculator components
         ├── charts.js            — BarChart / DonutChart (Chart.js wrappers)
@@ -23,6 +24,7 @@ src/
         ├── goalDashboard.js     — GoalDashboard: milestone CRUD + "Build Week" handoff
         ├── dailyTracker.js      — DailyTracker: Strava link + screenshots, embeds AiAnalyzer
         ├── aiAnalyzer.js        — AiAnalyzer: day/week/month OpenAI summary panel
+        ├── sprintTimer.js       — SprintTimer: warmup/work/rest/cooldown interval timer (see "Sprint/Interval Timer" section below)
         ├── settingsPage.js      — SettingsPage: password, usage quotas, language, theme
         ├── foodPlanner.js       — FoodPlanner: Guatemalan-food weekly meal planner vs daily calorie/macro target
         └── supplementStack.js   — SupplementStack: daily checklist for the 8-supplement stack (db.js pages 7/8)
@@ -225,6 +227,14 @@ A deliberately different content model from `lib/exercises.js`: that catalog's `
 **Screen Wake Lock** (`navigator.wakeLock`, feature-detected, silently no-ops if unsupported/denied) is requested on start/resume and released on pause/reset — a phone screen dimming/locking mid-interval-set would defeat a tool meant to run untouched for minutes.
 
 **Countdown is anchored to `Date.now()`, not a naive `setInterval` decrement** (`_phaseEndAt`, `start()`/`_tick()`/`_transitionPhase()`). A plain "subtract 1 each tick" clock drifts behind real elapsed time the longer it runs — `setInterval` ticks can be delayed by a busy event loop or a backgrounded/throttled tab, and a decrement-based clock never reclaims that lost time, only compounds it. Every tick instead recomputes `secondsLeft` from the wall-clock timestamp the current phase should end at, so a late tick just catches up to the true remaining time. `pause()`/`resume()` capture/restore the remaining milliseconds rather than pausing a decrement counter, for the same reason.
+
+**Phase sequence**: `idle -> [warmup] -> (work -> rest) × rounds -> [cooldown] -> done`. `warmupEnabled`/`cooldownEnabled` (both default on, persisted to `localStorage` like the sound/voice prefs) skip that phase entirely rather than running it with a zero duration — `start()` and `_transitionPhase()` both branch on them directly. `currentRound` only increments on the `rest -> work` transition, so a round's *rest* is considered part of that same round, not the next one — `roundStatus(n)` (used by both the round label and the sidebar cards below) treats a round as `'current'` only while its own `work` sub-phase is active, and `'done'` for the rest of that round's rest, cooldown, or `done`.
+
+**Session sidebar** (`sessionCards` computed, `.timer-rounds-sidebar`/`.timer-round-card`): one card per warm-up/round/cool-down across the *whole* session, each flagged done/current/upcoming — real-time visibility into how much of the session is behind you and how much is left, not just the current round's countdown. Horizontal scroll strip under 1024px width, a fixed-width scrolling column beside the big countdown above that.
+
+**Motivational voice/popup cues** (`_showMotivation()`, `src/js/data/timerPhrases.json`) are a separate, additional layer on top of the structural "Go"/"Rest"/"Cool down" announcements above — a random phrase from `getReady` fires once per phase in the last 3 seconds of `warmup`/`rest` (work is about to start), and one from `pushThrough` in the last 3 seconds of `work` (it's about to end), both spoken via `SpeechSynthesis` and flashed as a `.timer-motivation-popup` banner over the countdown for ~2.5s. `_motivationShownForPhase` gates it to once per phase (reset in `_enterPhase()`) so it doesn't refire on every one of the 3 countdown ticks. Plain JSON (not a server route) — no profile-scoping or DB round-trip needed for static phrase lists, fetched directly from the `/src` static mount already serving every other client asset.
+
+**Setup and sound-settings panels are independently collapsible** (`showSetup`/`showSoundPanel`, `.timer-section-toggle`) — same rationale as the Week Builder's palette collapse: less permanent vertical space spent on controls, more on the thing that matters while actually moving. Sound settings default *collapsed* (a set-once preference, not something glanced at mid-run); setup defaults *expanded* since you need it to actually configure a session, and it's already hidden entirely once `phase !== 'idle'` regardless. Default `volume` is `1` (max) — this tool is meant to be heard over wind/traffic/breathing, not a quiet media-player-style default.
 
 ## Settings page (settingsPage.js, routes/account.js)
 

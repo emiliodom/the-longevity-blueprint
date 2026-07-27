@@ -800,15 +800,39 @@ html.light-mode code.text-sky-400 {
 .timer-preset-card:hover     { border-color: var(--c-accent); }
 .timer-preset-card-selected  { border-color: var(--c-accent); box-shadow: 0 0 0 2px rgba(56,189,248,.35); }
 
+/* Setup card + sound panel share this same collapsible-header look. */
+.timer-section-toggle {
+  width:         100%;
+  text-align:    left;
+  font-size:     .78rem;
+  font-weight:   700;
+  text-transform:uppercase;
+  letter-spacing:.05em;
+  color:         var(--c-accent);
+}
+
+.timer-layout {
+  display:        flex;
+  flex-direction: column;
+  gap:            1rem;
+}
+@media (min-width: 1024px) {
+  .timer-layout { flex-direction: row; align-items: flex-start; }
+  .timer-layout > .timer-big-card { flex: 1; }
+}
+
 .timer-big-card {
+  position:      relative;
   border-radius: 1.25rem;
   padding:       2rem 1.5rem;
   text-align:    center;
   transition:    background-color .3s;
 }
-.timer-phase-work { background: rgba(52,211,153,.15); }
-.timer-phase-rest { background: rgba(251,191,36,.15); }
-.timer-phase-done { background: rgba(56,189,248,.15); }
+.timer-phase-warmup   { background: rgba(96,165,250,.15); }
+.timer-phase-work     { background: rgba(52,211,153,.15); }
+.timer-phase-rest     { background: rgba(251,191,36,.15); }
+.timer-phase-cooldown { background: rgba(129,140,248,.15); }
+.timer-phase-done     { background: rgba(56,189,248,.15); }
 
 .timer-phase-label {
   font-size:      clamp(1.5rem, 6vw, 2.5rem);
@@ -816,9 +840,66 @@ html.light-mode code.text-sky-400 {
   letter-spacing: .05em;
   text-transform: uppercase;
 }
-.timer-phase-work .timer-phase-label { color: #34d399; }
-.timer-phase-rest .timer-phase-label { color: #fbbf24; }
-.timer-phase-done .timer-phase-label { color: #38bdf8; }
+.timer-phase-warmup   .timer-phase-label { color: #60a5fa; }
+.timer-phase-work     .timer-phase-label { color: #34d399; }
+.timer-phase-rest     .timer-phase-label { color: #fbbf24; }
+.timer-phase-cooldown .timer-phase-label { color: #818cf8; }
+.timer-phase-done     .timer-phase-label { color: #38bdf8; }
+
+.timer-motivation-popup {
+  position:       absolute;
+  top:            .75rem;
+  left:           50%;
+  transform:      translateX(-50%);
+  background:     rgba(15,23,42,.92);
+  color:          #fff;
+  font-size:      clamp(1rem, 4vw, 1.5rem);
+  font-weight:    700;
+  padding:        .6rem 1.2rem;
+  border-radius:  .75rem;
+  box-shadow:     0 4px 16px rgba(0,0,0,.3);
+  max-width:      90%;
+  z-index:        5;
+}
+
+/* ── Session sidebar (warm up + one card per round + cool down) ──────────── */
+.timer-rounds-sidebar {
+  display:        flex;
+  flex-direction: row;
+  gap:            .5rem;
+  overflow-x:     auto;
+  padding-bottom: .25rem;
+}
+@media (min-width: 1024px) {
+  .timer-rounds-sidebar {
+    flex-direction: column;
+    width:          11rem;
+    max-height:     70vh;
+    overflow-y:     auto;
+    overflow-x:     visible;
+  }
+}
+.timer-round-card {
+  display:        flex;
+  align-items:    center;
+  justify-content:space-between;
+  gap:            .5rem;
+  flex-shrink:    0;
+  padding:        .5rem .75rem;
+  border-radius:  .5rem;
+  border:         1px solid var(--c-border);
+  background:     var(--c-surface);
+  font-size:      .78rem;
+  color:          var(--c-subtle);
+  white-space:    nowrap;
+}
+.timer-round-card-done    { color: var(--c-text2); border-color: rgba(52,211,153,.4); }
+.timer-round-card-current {
+  color:        var(--c-text);
+  border-color: var(--c-accent);
+  box-shadow:   0 0 0 2px rgba(56,189,248,.35);
+  font-weight:  700;
+}
 
 .timer-display {
   font-size:   clamp(4rem, 22vw, 10rem);

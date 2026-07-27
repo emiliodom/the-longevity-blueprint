@@ -398,9 +398,7 @@ const DB = [
   {
     id: 31, icon: '⏱️', title: 'Sprint Timer',
     isSprintTimer: true, hero: '',
-    content: [
-      { type: 'paragraph', text: 'Pick a run, cycling, or swimming interval preset — or set your own rounds/work/rest — and run it with a giant on-screen countdown plus voice and beep cues, built for glancing at (or just listening to) mid-workout.' }
-    ]
+    content: []
   },
   {
     id: 28, icon: '⚙️', title: 'Settings',
