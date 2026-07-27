@@ -508,8 +508,11 @@
         </div>
       </header>
 
-      <!-- Page content -->
-      <main class="flex-1 p-4 sm:p-6 lg:p-8 max-w-4xl w-full mx-auto">
+      <!-- Page content. max-w-4xl is a readable line-length cap, correct for
+           prose pages — but it was also silently bottlenecking wide-layout
+           tool pages like the Week Builder's day board regardless of actual
+           screen width, so it's relaxed for those specifically. -->
+      <main class="flex-1 p-4 sm:p-6 lg:p-8 w-full mx-auto" :class="currentPage.isTrainingBuilder ? 'max-w-none' : 'max-w-4xl'">
 
         <!-- Hero image (Pexels, resolved async — see loadHeroImage/resolvedHero in app.js).
              Falls back to the plain title below until/unless a photo resolves. -->

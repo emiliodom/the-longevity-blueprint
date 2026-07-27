@@ -521,8 +521,7 @@ app.component('WeekBuilder', {
       <!-- Day/Week board — wraps as cards; Day view is just this same board
            filtered to one column via visibleDayIndices. -->
       <div v-if="viewMode !== 'month'"
-           class="grid grid-cols-1 gap-3"
-           :class="viewMode === 'day' ? 'sm:grid-cols-1 max-w-md' : 'sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7'">
+           :class="viewMode === 'day' ? 'max-w-md' : 'hscroll-card-row'">
         <div v-for="dayIndex in visibleDayIndices" :key="dayIndex" class="day-column">
             <div class="day-column-header">
               <div class="font-semibold text-xs text-white">{{ DAY_LABELS[dayIndex] }}</div>

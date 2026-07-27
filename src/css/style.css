@@ -644,6 +644,23 @@ html.light-mode code.text-sky-400 {
   background: rgba(56,189,248,.12);
 }
 
+/* Reusable pattern: a horizontally-scrolling row of minimum-width cards,
+   for any multi-card row that would otherwise get squeezed into truncating
+   its own content. Cards never shrink below their minimum width; on a wide
+   screen, extra space distributes evenly across them (flex-grow) instead of
+   one card stretching oddly; on a narrower one, the row scrolls horizontally
+   instead of cramming every card into view. This is the standard to reuse
+   for any future card row with the same problem — not a Week-Builder-only
+   fix. Month view is a calendar grid, not a card row, and is deliberately
+   excluded — shrinking cells to fit is the right behavior for a calendar,
+   and its cells have nothing dense enough to truncate. */
+.hscroll-card-row {
+  display:        flex;
+  gap:            .75rem;
+  overflow-x:     auto;
+  padding-bottom: .35rem; /* room for the scrollbar so it doesn't clip card borders/shadows */
+}
+
 .day-column {
   background:    var(--c-surface2);
   border:        1px solid var(--c-border);
@@ -653,6 +670,13 @@ html.light-mode code.text-sky-400 {
   display:       flex;
   flex-direction:column;
   box-shadow:    0 1px 2px rgba(0,0,0,.15);
+}
+/* 448px matches Day view's single-card max-width (Tailwind's max-w-md) —
+   a Week-view column is never narrower than what a lone day card already
+   looks fine at. flex:1 0 448px grows to fill extra space when there's
+   room, but the 0 (no shrink) means it never goes below 448px. */
+.hscroll-card-row > .day-column {
+  flex: 1 0 448px;
 }
 .day-column-header {
   display:        flex;
