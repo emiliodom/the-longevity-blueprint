@@ -44,6 +44,7 @@ app.component('WeekBuilder', {
       weekStartDate:  toIsoDateLocal(mondayOf(new Date())),
       week:           null,
       blockTemplates: [],
+      exercises:      [],
       goals:          [],
       selectedGoalId: '',
       loading:        false,
@@ -55,6 +56,10 @@ app.component('WeekBuilder', {
       // reader users without this, so it's a first-class path, not an
       // afterthought.
       selectedTemplateId: null,
+      // Detail modal: normalized to { title, icon, durationMin, category }
+      // regardless of whether it was opened from a palette template or a
+      // placed board block — see openDetail().
+      detailItem: null,
       DAY_LABELS
     };
   },
@@ -74,10 +79,15 @@ app.component('WeekBuilder', {
     },
     activeGoal() {
       return this.goals.find(g => g.id === this.week?.goalId) || null;
+    },
+    detailExercises() {
+      if (!this.detailItem) return [];
+      return this.exercises.filter(e => e.category === this.detailItem.category);
     }
   },
   async mounted() {
     this.blockTemplates = await Storage.getBlockTemplates(this.profile.id);
+    this.exercises      = await Storage.getExercises(this.profile.id);
     this.goals = await Storage.getGoals(this.profile.id);
     await this.loadWeek();
 
@@ -176,6 +186,17 @@ app.component('WeekBuilder', {
       await this.loadWeek();
     },
 
+    // ── Detail modal ─────────────────────────────────────────────────────
+    openTemplateDetail(t) {
+      this.detailItem = { title: t.label, icon: t.icon, durationMin: t.defaultDurationMin, category: t.category };
+    },
+    openBlockDetail(block) {
+      this.detailItem = { title: block.title, icon: this.blockIcon(block), durationMin: block.durationMin, category: block.blockType };
+    },
+    closeDetail() {
+      this.detailItem = null;
+    },
+
     // ── Drag and drop wiring ────────────────────────────────────────────
     destroySortables() {
       this._sortables.forEach(s => s.destroy());
@@ -190,7 +211,12 @@ app.component('WeekBuilder', {
       if (paletteEl) {
         this._sortables.push(new Sortable(paletteEl, BlockStyleConfig.sortableOptions({
           group: { name: 'week-blocks', pull: 'clone', put: false },
-          sort: false
+          sort:     false,
+          // Category headers are flat siblings of .palette-item (see template
+          // below — Sortable treats direct children as its drag units, so
+          // without this, grabbing any item under a header dragged the
+          // *entire category group* as one clump instead of a single item.
+          filter:   '.palette-category-header'
         })));
       }
 
@@ -264,22 +290,23 @@ app.component('WeekBuilder', {
         <div class="module-card">
           <h3 class="text-sky-400 font-semibold text-xs uppercase tracking-wider mb-1">Drag a block onto a day</h3>
           <p class="text-xs text-slate-500 mb-3">Or tap a block, then tap a day — works without a mouse.</p>
-          <div ref="palette" class="space-y-4">
-            <div v-for="(items, cat) in templatesByCategory" :key="cat">
-              <div class="text-xs text-slate-500 font-medium mb-1">{{ categoryLabel(cat) }}</div>
+          <div ref="palette" class="space-y-1">
+            <template v-for="(items, cat) in templatesByCategory" :key="cat">
+              <div class="text-xs text-slate-500 font-medium mt-3 mb-1 palette-category-header">{{ categoryLabel(cat) }}</div>
               <div v-for="t in items" :key="t.id" :data-template-id="t.id"
                    @click="selectTemplate(t)" :style="cardStyle(t.category)"
                    class="palette-item" :class="selectedTemplateId === t.id ? 'palette-item-selected' : ''">
                 <span>{{ t.icon }}</span>
                 <span class="flex-1 min-w-0 truncate">{{ t.label }}</span>
                 <span class="text-xs text-slate-500">{{ t.defaultDurationMin }}m</span>
+                <button @click.stop="openTemplateDetail(t)" class="palette-item-info" title="More info">ⓘ</button>
               </div>
-            </div>
+            </template>
           </div>
         </div>
 
-        <!-- 7-day board -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3">
+        <!-- Day board — wraps as cards rather than forcing 7 cramped columns -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
           <div v-for="(label, dayIndex) in DAY_LABELS" :key="dayIndex" class="day-column">
             <div class="day-column-header">
               <div class="font-semibold text-xs text-white">{{ label }}</div>
@@ -290,7 +317,10 @@ app.component('WeekBuilder', {
                   class="block-card" :style="cardStyle(block.blockType)">
                 <div class="flex items-start justify-between gap-1">
                   <span class="text-sm">{{ blockIcon(block) }} {{ block.title }}</span>
-                  <button @click="deleteBlock(block.id)" class="text-slate-500 hover:text-red-400 text-xs flex-shrink-0">✕</button>
+                  <div class="flex items-center gap-1 flex-shrink-0">
+                    <button @click.stop="openBlockDetail(block)" class="block-card-info" title="More info">ⓘ</button>
+                    <button @click="deleteBlock(block.id)" class="text-slate-500 hover:text-red-400 text-xs">✕</button>
+                  </div>
                 </div>
                 <div class="text-[10px] text-slate-500 mt-0.5">{{ block.durationMin || '?' }} min</div>
               </li>
@@ -299,6 +329,29 @@ app.component('WeekBuilder', {
               + Add {{ selectedTemplate.label }}
             </button>
             <p v-else-if="!dayBlocks(dayIndex).length" class="day-column-empty">Drop here</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detail modal: shows the exercise catalog for a template/block's category -->
+      <div v-if="detailItem" class="detail-modal-backdrop" @click.self="closeDetail">
+        <div class="detail-modal module-card">
+          <div class="flex items-start justify-between gap-3 mb-1">
+            <h3 class="text-white font-semibold text-sm">{{ detailItem.icon }} {{ detailItem.title }}</h3>
+            <button @click="closeDetail" class="text-slate-500 hover:text-red-400 text-sm flex-shrink-0">✕</button>
+          </div>
+          <p class="text-xs text-slate-500 mb-3">{{ categoryLabel(detailItem.category) }} · {{ detailItem.durationMin || '?' }} min</p>
+          <p class="text-xs text-slate-500 font-medium uppercase tracking-wider mb-2">Exercises to draw from</p>
+          <div class="detail-modal-list">
+            <div v-for="ex in detailExercises" :key="ex.id" class="exercise-row">
+              <div class="flex items-start justify-between gap-2">
+                <span class="text-sm text-white font-medium">{{ ex.name }}</span>
+                <span class="exercise-badge" :class="'exercise-badge-' + ex.difficulty">{{ ex.difficulty }}</span>
+              </div>
+              <p class="text-xs text-slate-400 leading-relaxed mt-0.5">{{ ex.description }}</p>
+              <p class="text-[11px] text-slate-500 mt-1">{{ ex.dosage }} · {{ ex.equipment }}</p>
+            </div>
+            <p v-if="!detailExercises.length" class="text-xs text-slate-500">No exercises catalogued for this category yet.</p>
           </div>
         </div>
       </div>

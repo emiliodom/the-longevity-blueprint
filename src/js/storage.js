@@ -197,6 +197,12 @@ const Storage = {
     return res.json();
   },
 
+  async getExercises(profileId) {
+    const res = await fetch(`/api/profiles/${profileId}/training/exercises`);
+    if (!res.ok) return [];
+    return res.json();
+  },
+
   async ensureWeek(profileId, weekStartDate, goalId) {
     const res = await fetch(`/api/profiles/${profileId}/training/weeks`, {
       method:  'POST',

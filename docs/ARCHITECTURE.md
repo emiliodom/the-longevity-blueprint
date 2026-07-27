@@ -46,6 +46,7 @@ src/server/                       — backend, one small file per concern
 │   └── rateLimit.js                — authLimiter (in-memory, login/register brute-force protection)
 ├── lib/
 │   ├── templates.js               — GOAL_TEMPLATES / BLOCK_TEMPLATES (static content, not user data)
+│   ├── exercises.js                — EXERCISE_TEMPLATES: 200 exercises (25/category) for the Week Builder's block-detail modal
 │   ├── autobuild.js                — deterministic rules engine: goal + week → suggested blocks
 │   ├── openai.js                   — OpenAI vision analyzer (server-side key, never sent to browser)
 │   ├── quota.js                    — durable per-account usage quotas (uploads, AI calls) — usage_events table
@@ -146,6 +147,10 @@ SortableJS (CDN, loaded in `index.html`'s `<head>`) drives drag-and-drop, with `
 Sync strategy: **every** drag operation (drop from palette, move to another day, reorder within a day) calls the relevant API endpoint, then reloads the entire week from the server and re-initializes all Sortable instances (`initSortables()` destroys and recreates them). This trades a small UI flash for never having Vue's virtual DOM and Sortable's direct DOM manipulation fight over list order — there is exactly one source of truth (the server) at all times.
 
 **Tap-to-place is a first-class second path, not a fallback-of-last-resort**: click a palette template (`selectTemplate`) to highlight it, then click a day's "+ Add …" button (`placeOnDay`) to place it there, calling the exact same `Storage.addBlock` flow a drop would. This exists because drag-only interactions exclude touch-without-precision, keyboard, and screen-reader users regardless of how well the drag itself works — and, concretely, it's how this feature's add-block path got verified end-to-end in a browser (see the browser-automation note above).
+
+**Palette DOM must keep every `.palette-item` and category-header as a flat, direct child of the `ref="palette"` element** — SortableJS treats an attached container's direct children as its draggable units. The template uses `<template v-for>` (a non-rendering Vue wrapper) around each category's header + items specifically to flatten them, instead of a `<div v-for>` group wrapper; with a wrapper div, grabbing any single item would drag the *entire category group* as one clump (the bug this was fixed from). The palette's Sortable instance also passes `filter: '.palette-category-header'` so headers themselves aren't draggable.
+
+**Block-detail modal** (`detailItem`/`openTemplateDetail`/`openBlockDetail`/`closeDetail`, plus the `detailExercises` computed): clicking a palette item's or placed block's ⓘ button opens the app's first modal (no prior modal convention existed — see `.detail-modal-backdrop`/`.detail-modal` in `style.css`, patterned after the existing `.server-error` fixed-overlay + `.module-card` panel styles), listing every `EXERCISE_TEMPLATES` entry (`lib/exercises.js`, fetched via `GET /api/training/exercises`) matching that block/template's category. There's no per-block exercise selection persisted anywhere — it's reference content, not a checklist tied to the block row.
 
 ## Auto-build (lib/autobuild.js)
 

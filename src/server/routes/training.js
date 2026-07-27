@@ -3,6 +3,7 @@
  *
  * API surface (new):
  *   GET    /api/training/block-templates
+ *   GET    /api/training/exercises                                 — catalog for the block-detail modal
  *   GET    /api/profiles/:id/training/weeks
  *   POST   /api/profiles/:id/training/weeks                       — get-or-create by weekStartDate
  *   GET    /api/profiles/:id/training/weeks/:weekId
@@ -24,6 +25,7 @@ const PDFDocument = require('pdfkit');
 const { query }              = require('../db/pool');
 const { requireAuth }        = require('../middleware/auth');
 const { BLOCK_TEMPLATES }    = require('../lib/templates');
+const { EXERCISE_TEMPLATES } = require('../lib/exercises');
 const { buildWeekFromGoal }  = require('../lib/autobuild');
 const { buildCsv }           = require('../lib/exporters/csv');
 const { buildIcs }           = require('../lib/exporters/ics');
@@ -63,6 +65,9 @@ async function loadWeekWithBlocks(weekId) {
 
 // ── Block templates (palette) ──────────────────────────────────────────────
 router.get('/block-templates', (_req, res) => res.json(BLOCK_TEMPLATES));
+
+// ── Exercise catalog (block-detail modal) ──────────────────────────────────
+router.get('/exercises', (_req, res) => res.json(EXERCISE_TEMPLATES));
 
 // ── Weeks ────────────────────────────────────────────────────────────────
 router.get('/weeks', async (req, res) => {

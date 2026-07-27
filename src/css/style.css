@@ -584,6 +584,11 @@ html.light-mode code.text-sky-400 {
   cursor:        grab;
   color:         var(--c-text2);
   transition:    border-color .15s;
+  /* SortableJS's pointer-based dragging (forceFallback, see
+     blockStyleConfig.js) can otherwise trigger the browser's native text
+     selection on a press-and-drag gesture, which visually looks like the
+     wrong element got "selected" instead of dragged. */
+  user-select:   none;
 }
 .palette-item:hover        { border-color: var(--c-accent); }
 .palette-item-selected {
@@ -596,14 +601,26 @@ html.light-mode code.text-sky-400 {
    not a fixed rule per category, so new sports/categories need no CSS edit. */
 .palette-item { border-left: 3px solid var(--block-accent, var(--c-border)); }
 
+.palette-item-info,
+.block-card-info {
+  flex-shrink: 0;
+  font-size:   .75rem;
+  color:       var(--c-subtle);
+  line-height: 1;
+  padding:     0 .15rem;
+}
+.palette-item-info:hover,
+.block-card-info:hover { color: var(--c-accent); }
+
 .day-column {
   background:    var(--c-surface2);
   border:        1px solid var(--c-border);
   border-radius: .75rem;
-  padding:       .5rem;
+  padding:       .75rem;
   min-height:    220px;
   display:       flex;
   flex-direction:column;
+  box-shadow:    0 1px 2px rgba(0,0,0,.15);
 }
 .day-column-header {
   display:        flex;
@@ -653,10 +670,52 @@ html.light-mode code.text-sky-400 {
   font-size:     .75rem;
   color:         var(--c-text2);
   cursor:        grab;
+  user-select:   none; /* see .palette-item's comment above */
 }
 /* Same --block-accent pattern as .palette-item, above. */
 .block-card { border-left: 3px solid var(--block-accent, var(--c-border)); }
 .block-ghost { opacity: var(--block-ghost-opacity, .4); }
+
+/* ── Week Builder detail modal ───────────────────────────────────────────── */
+.detail-modal-backdrop {
+  position:        fixed;
+  inset:            0;
+  z-index:          100;
+  background:       rgba(0,0,0,.6);
+  display:          flex;
+  align-items:      center;
+  justify-content:  center;
+  padding:          1rem;
+}
+.detail-modal {
+  max-width:  480px;
+  width:      100%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+.detail-modal-list {
+  display:        flex;
+  flex-direction: column;
+  gap:            .5rem;
+}
+.exercise-row {
+  background:    var(--c-surface2);
+  border:        1px solid var(--c-border);
+  border-radius: .5rem;
+  padding:       .6rem .7rem;
+}
+.exercise-badge {
+  flex-shrink:    0;
+  font-size:      .65rem;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  padding:        .1rem .4rem;
+  border-radius:  .3rem;
+  color:          var(--c-base);
+}
+.exercise-badge-beginner     { background: #34d399; }
+.exercise-badge-intermediate { background: #fbbf24; }
+.exercise-badge-advanced     { background: #f87171; }
 
 /* ── Goal Dashboard ───────────────────────────────────────────────────────── */
 .goal-card {
