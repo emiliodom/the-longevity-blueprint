@@ -18,9 +18,11 @@ CREATE TABLE IF NOT EXISTS users (
 
 -- Forward-migration pattern for columns added after a table already shipped:
 -- CREATE TABLE above is a no-op on an existing DB, so upgrade it in place.
--- Safe to re-run (IF NOT EXISTS) — this is how existing installs pick up
--- `preferred_language` without re-running the whole CREATE TABLE.
-ALTER TABLE users ADD COLUMN IF NOT EXISTS preferred_language VARCHAR(10) NOT NULL DEFAULT 'en';
+-- `ADD COLUMN IF NOT EXISTS` isn't portable across MySQL/MariaDB versions, so
+-- this is deliberately plain — setup.js runs ALTER TABLE statements separately
+-- from the CREATE TABLE batch and ignores ER_DUP_FIELDNAME, which is how
+-- existing installs pick up `preferred_language` without re-running everything.
+ALTER TABLE users ADD COLUMN preferred_language VARCHAR(10) NOT NULL DEFAULT 'en';
 
 CREATE TABLE IF NOT EXISTS profiles (
   id          VARCHAR(36)  PRIMARY KEY,

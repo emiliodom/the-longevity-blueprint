@@ -40,7 +40,25 @@ async function main() {
     database: DB_NAME, multipleStatements: true
   });
   const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
-  await conn.query(schema);
+
+  // ALTER TABLE ... ADD COLUMN statements run separately from the CREATE
+  // TABLE batch: on a fresh database the column already exists (it's also
+  // in the CREATE TABLE definition), and unlike CREATE TABLE IF NOT EXISTS,
+  // ADD COLUMN IF NOT EXISTS isn't supported on every MySQL/MariaDB version —
+  // so this tolerates the duplicate-column error instead, without risking
+  // one failed statement aborting every CREATE TABLE after it in the batch.
+  const alterStatements = schema.match(/^ALTER TABLE.*;$/gm) || [];
+  const createOnly = schema.replace(/^ALTER TABLE.*;$/gm, '');
+
+  await conn.query(createOnly);
+  for (const statement of alterStatements) {
+    try {
+      await conn.query(statement);
+    } catch (err) {
+      if (err.code !== 'ER_DUP_FIELDNAME') throw err;
+    }
+  }
+
   await conn.end();
 
   console.log(`\n  ✓ Database "${DB_NAME}" is ready at ${DB_HOST}:${DB_PORT}\n`);
