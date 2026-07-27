@@ -56,6 +56,9 @@ app.component('WeekBuilder', {
       // reader users without this, so it's a first-class path, not an
       // afterthought.
       selectedTemplateId: null,
+      // Collapsed by default — the palette is ~24 items across 8 categories,
+      // too much vertical space to show unconditionally on every visit.
+      showPalette: false,
       // Detail modal: normalized to { title, icon, durationMin, category }
       // regardless of whether it was opened from a palette template or a
       // placed board block — see openDetail().
@@ -296,11 +299,18 @@ app.component('WeekBuilder', {
         </div>
       </div>
 
-      <!-- Palette — horizontal, above the board, so the board gets full width -->
+      <!-- Palette — collapsed by default (it's a lot of vertical space), horizontal
+           and above the board when expanded. v-show (not v-if) keeps the ref="palette"
+           DOM node alive while collapsed, so its Sortable instance never needs to be
+           torn down/recreated — a v-if here would break drag every time you reopened it. -->
       <div class="module-card">
-        <h3 class="text-sky-400 font-semibold text-xs uppercase tracking-wider mb-1">Drag a block onto a day</h3>
-        <p class="text-xs text-slate-500 mb-3">Or tap a block, then tap a day — works without a mouse.</p>
-        <div ref="palette" class="palette-row">
+        <button @click="showPalette = !showPalette" class="palette-toggle">
+          <span class="text-sky-400 font-semibold text-xs uppercase tracking-wider">
+            {{ showPalette ? '▾' : '▸' }} Add a block ({{ blockTemplates.length }})
+          </span>
+        </button>
+        <p v-if="showPalette" class="text-xs text-slate-500 mt-1 mb-3">Drag a block onto a day, or tap a block then tap a day — works without a mouse.</p>
+        <div ref="palette" class="palette-row" v-show="showPalette">
           <template v-for="(items, cat) in templatesByCategory" :key="cat">
             <div class="text-xs text-slate-500 font-medium palette-category-header basis-full">{{ categoryLabel(cat) }}</div>
             <div v-for="t in items" :key="t.id" :data-template-id="t.id"

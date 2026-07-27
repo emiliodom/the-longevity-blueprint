@@ -571,6 +571,11 @@ html.light-mode code.text-sky-400 {
 }
 
 /* ── Week Training Builder ────────────────────────────────────────────────── */
+.palette-toggle {
+  width:         100%;
+  text-align:    left;
+  padding:       .25rem 0;
+}
 /* Horizontal, wrapping palette — flex-wrap keeps every item and category
    header as a flat direct child (required by SortableJS, see weekBuilder.js's
    comment on initSortables()), while each header's `.basis-full` (Tailwind
@@ -618,14 +623,19 @@ html.light-mode code.text-sky-400 {
 
 .palette-item-info,
 .block-card-info {
-  flex-shrink: 0;
-  font-size:   .75rem;
-  color:       var(--c-subtle);
-  line-height: 1;
-  padding:     0 .15rem;
+  flex-shrink:   0;
+  font-size:     1.05rem;
+  color:         var(--c-subtle);
+  line-height:   1;
+  padding:       .2rem .35rem;
+  border-radius: .3rem;
+  transition:    background .15s, color .15s;
 }
 .palette-item-info:hover,
-.block-card-info:hover { color: var(--c-accent); }
+.block-card-info:hover {
+  color:      var(--c-accent);
+  background: rgba(56,189,248,.12);
+}
 
 .day-column {
   background:    var(--c-surface2);
