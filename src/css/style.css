@@ -761,6 +761,59 @@ html.light-mode code.text-sky-400 {
 .block-card-action-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
 .block-card-action-btn-danger:hover { border-color: #f87171; color: #f87171; }
 
+.block-card-expand-btn {
+  flex-shrink:   0;
+  color:         var(--c-subtle);
+  font-size:     .65rem;
+  padding:       0 .2rem;
+  cursor:        pointer;
+}
+.block-card-expand-btn:hover { color: var(--c-accent); }
+
+/* Compound block sub-item list — a session's inner exercises, revealed by
+   the expand caret. cursor:default (not the card's grab) since this panel
+   is a click surface, not a drag handle. */
+.subblock-panel {
+  margin-top:    .4rem;
+  padding-top:   .4rem;
+  border-top:    1px dashed var(--c-border);
+  cursor:        default;
+}
+.subblock-row {
+  display:      flex;
+  align-items:  center;
+  gap:          .3rem;
+  padding:      .2rem 0;
+}
+.subblock-mode-badge {
+  flex-shrink: 0;
+  font-size:   .7rem;
+}
+.subblock-move-btn, .subblock-remove-btn {
+  flex-shrink:   0;
+  font-size:     .6rem;
+  color:         var(--c-subtle);
+  padding:       0 .15rem;
+  cursor:        pointer;
+}
+.subblock-move-btn:disabled { opacity: .3; cursor: default; }
+.subblock-move-btn:not(:disabled):hover { color: var(--c-accent); }
+.subblock-remove-btn:hover { color: #f87171; }
+.subblock-add-btn {
+  width:         100%;
+  text-align:    center;
+  font-size:     .65rem;
+  font-weight:   600;
+  color:         var(--c-accent);
+  background:    rgba(56,189,248,.1);
+  border:        1px dashed var(--c-accent);
+  border-radius: .35rem;
+  padding:       .3rem;
+  margin-top:    .3rem;
+  cursor:        pointer;
+}
+.subblock-add-btn:hover { background: rgba(56,189,248,.2); }
+
 /* ── Month view (read-only calendar overview) ─────────────────────────────── */
 .month-grid-weekdays,
 .month-grid-row {

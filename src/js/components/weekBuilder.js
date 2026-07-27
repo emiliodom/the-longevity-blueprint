@@ -78,11 +78,18 @@ app.component('WeekBuilder', {
       // Collapsed by default — the palette is ~24 items across 8 categories,
       // too much vertical space to show unconditionally on every visit.
       showPalette: false,
-      // Detail modal: normalized to { title, icon, durationMin, category }
+      // Detail modal: normalized to { title, icon, durationMin, category, mode }
       // regardless of whether it was opened from a palette template or a
       // placed board block — see openTemplateDetail()/openBlockDetail().
-      // This is the "Swap" flow — browsing alternatives to replace the block.
+      // mode: 'replace' is the original Swap flow (browsing alternatives to
+      // replace the block's exercise); mode: 'append' (openAddSubBlock) adds
+      // a new entry to the block's details.subBlocks instead, building a
+      // compound session — see selectExercise()'s branch on detailItem.mode.
       detailItem: null,
+      // Which block's compound sub-item list is currently revealed. Only one
+      // at a time — same pattern as detailItem/insightItem, a single shared
+      // "what's open right now" field rather than per-block state.
+      expandedBlockId: null,
       // Insights panel: the single EXERCISE_TEMPLATES entry currently
       // resolved for one specific placed block (see resolvedExercise()) —
       // a deep-dive on what's already assigned, not a list of alternatives.
@@ -343,20 +350,72 @@ app.component('WeekBuilder', {
     // what selectExercise() needs to know it has something to replace.
     // Opening from a palette template (not yet on a day) is reference-only.
     openTemplateDetail(t) {
-      this.detailItem = { title: t.label, icon: t.icon, durationMin: t.defaultDurationMin, category: t.category, blockId: null };
+      this.detailItem = { title: t.label, icon: t.icon, durationMin: t.defaultDurationMin, category: t.category, blockId: null, mode: 'replace' };
     },
     openBlockDetail(block) {
-      this.detailItem = { title: block.title, icon: this.blockIcon(block), durationMin: block.durationMin, category: block.blockType, blockId: block.id };
+      this.detailItem = { title: block.title, icon: this.blockIcon(block), durationMin: block.durationMin, category: block.blockType, blockId: block.id, mode: 'replace' };
+    },
+    // "+ Add exercise" inside an expanded compound block — same modal as
+    // Swap, but selectExercise() appends to details.subBlocks instead of
+    // replacing the block's own exercise. blockRef carries the full block
+    // (not just its id) since appending needs its current details.subBlocks.
+    openAddSubBlock(block) {
+      this.detailItem = { title: block.title, icon: this.blockIcon(block), durationMin: block.durationMin, category: block.blockType, blockId: block.id, mode: 'append', blockRef: block };
     },
     closeDetail() {
       this.detailItem = null;
     },
     async selectExercise(ex) {
       if (!this.detailItem?.blockId) return;
-      await Storage.updateBlock(this.profile.id, this.week.id, this.detailItem.blockId, {
-        title: ex.name, details: { exerciseId: ex.id }
-      });
+
+      if (this.detailItem.mode === 'append') {
+        const block = this.detailItem.blockRef;
+        const subBlocks = [...this.subBlocksFor(block), { id: crypto.randomUUID(), exerciseId: ex.id, title: ex.name, category: ex.category }];
+        await Storage.updateBlock(this.profile.id, this.week.id, block.id, { details: { ...block.details, subBlocks } });
+      } else {
+        await Storage.updateBlock(this.profile.id, this.week.id, this.detailItem.blockId, {
+          title: ex.name, details: { exerciseId: ex.id }
+        });
+      }
       this.closeDetail();
+      await this.loadWeek();
+    },
+
+    // ── Compound blocks — a session's inner exercises (details.subBlocks) ──
+    toggleExpand(block) {
+      this.expandedBlockId = this.expandedBlockId === block.id ? null : block.id;
+    },
+    isExpanded(block) {
+      return this.expandedBlockId === block.id;
+    },
+    // Falls back to the block's single resolved exercise as an implicit one-
+    // item list when details.subBlocks hasn't been created yet — so a plain
+    // block (the common case) still shows something sensible when expanded,
+    // and workoutQueue.js's fallback logic mirrors this exact rule.
+    subBlocksFor(block) {
+      const list = block.details?.subBlocks;
+      if (Array.isArray(list) && list.length) return list;
+      const ex = this.resolvedExercise(block);
+      return ex ? [{ id: `${block.id}-0`, exerciseId: ex.id, title: ex.name, category: block.blockType }] : [];
+    },
+    subExercise(sb) {
+      return this.exercises.find(e => e.id === sb.exerciseId) || null;
+    },
+    modeIcon(sb) {
+      return BlockStyleConfig.modeStyle(this.subExercise(sb)?.mode).icon;
+    },
+    async removeSubBlock(block, subId) {
+      const subBlocks = this.subBlocksFor(block).filter(sb => sb.id !== subId);
+      await Storage.updateBlock(this.profile.id, this.week.id, block.id, { details: { ...block.details, subBlocks } });
+      await this.loadWeek();
+    },
+    async moveSubBlock(block, subId, dir) {
+      const list = [...this.subBlocksFor(block)];
+      const idx = list.findIndex(sb => sb.id === subId);
+      const swapWith = idx + dir;
+      if (idx < 0 || swapWith < 0 || swapWith >= list.length) return;
+      [list[idx], list[swapWith]] = [list[swapWith], list[idx]];
+      await Storage.updateBlock(this.profile.id, this.week.id, block.id, { details: { ...block.details, subBlocks: list } });
       await this.loadWeek();
     },
 
@@ -531,9 +590,26 @@ app.component('WeekBuilder', {
               <li v-for="block in dayBlocks(dayIndex)" :key="block.id" :data-block-id="block.id"
                   class="block-card" :style="cardStyle(block.blockType)">
                 <div class="flex items-center gap-1 min-w-0">
-                  <span class="text-sm truncate">{{ blockIcon(block) }} {{ block.title }}</span>
+                  <span class="text-sm truncate flex-1">{{ blockIcon(block) }} {{ block.title }}</span>
+                  <button @click.stop="toggleExpand(block)" class="block-card-expand-btn" :title="isExpanded(block) ? 'Collapse' : 'Expand'">
+                    {{ isExpanded(block) ? '▾' : '▸' }}
+                  </button>
                 </div>
-                <div class="text-[10px] text-slate-500 mt-0.5">{{ block.durationMin || '?' }} min</div>
+                <div class="text-[10px] text-slate-500 mt-0.5">
+                  {{ block.durationMin || '?' }} min<span v-if="subBlocksFor(block).length > 1"> · {{ subBlocksFor(block).length }} exercises</span>
+                </div>
+
+                <div v-if="isExpanded(block)" class="subblock-panel">
+                  <div v-for="(sb, si) in subBlocksFor(block)" :key="sb.id" class="subblock-row">
+                    <span class="subblock-mode-badge">{{ modeIcon(sb) }}</span>
+                    <span class="flex-1 min-w-0 truncate text-xs text-slate-300">{{ sb.title || subExercise(sb)?.name || 'Exercise' }}</span>
+                    <button @click="moveSubBlock(block, sb.id, -1)" :disabled="si === 0" class="subblock-move-btn">▲</button>
+                    <button @click="moveSubBlock(block, sb.id, 1)" :disabled="si === subBlocksFor(block).length - 1" class="subblock-move-btn">▼</button>
+                    <button @click="removeSubBlock(block, sb.id)" class="subblock-remove-btn">✕</button>
+                  </div>
+                  <button @click="openAddSubBlock(block)" class="subblock-add-btn">+ Add exercise</button>
+                </div>
+
                 <div class="block-card-actions">
                   <button @click.stop="openBlockDetail(block)" class="block-card-action-btn">🔄 Swap</button>
                   <button @click.stop="openExerciseInsights(block)" class="block-card-action-btn">📊 Insights</button>
@@ -572,7 +648,7 @@ app.component('WeekBuilder', {
           </div>
           <p class="text-xs text-slate-500 mb-3">{{ categoryLabel(detailItem.category) }} · {{ detailItem.durationMin || '?' }} min</p>
           <p class="text-xs text-slate-500 font-medium uppercase tracking-wider mb-2">
-            {{ detailItem.blockId ? 'Pick one to replace this block' : 'Exercises to draw from' }}
+            {{ detailItem.mode === 'append' ? 'Add an exercise to this session' : (detailItem.blockId ? 'Pick one to replace this block' : 'Exercises to draw from') }}
           </p>
           <div class="detail-modal-list">
             <div v-for="ex in detailExercises" :key="ex.id" class="exercise-row">
@@ -583,7 +659,7 @@ app.component('WeekBuilder', {
               <p class="text-xs text-slate-400 leading-relaxed mt-0.5">{{ ex.description }}</p>
               <div class="flex items-end justify-between gap-2 mt-1">
                 <p class="text-[11px] text-slate-500">{{ ex.dosage }} · {{ ex.equipment }}</p>
-                <button v-if="detailItem.blockId" @click="selectExercise(ex)" class="exercise-select-btn">Use this →</button>
+                <button v-if="detailItem.blockId" @click="selectExercise(ex)" class="exercise-select-btn">{{ detailItem.mode === 'append' ? '+ Add' : 'Use this →' }}</button>
               </div>
             </div>
             <p v-if="!detailExercises.length" class="text-xs text-slate-500">No exercises catalogued for this category yet.</p>

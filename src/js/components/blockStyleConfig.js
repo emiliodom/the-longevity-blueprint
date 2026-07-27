@@ -31,6 +31,16 @@ const BLOCK_CATEGORY_STYLE = {
   stretch:      { label: '🤸 Stretching',      accent: '#34d399', fallbackIcon: '🤸' }
 };
 
+// Badge shown per sub-item inside an expanded compound block (weekBuilder.js)
+// and per queue step in the timer (blockTimerWidget.js/sprintTimer.js) — the
+// structural distinction from exercises.js's `mode` field, not a sport icon.
+const MODE_STYLE = {
+  interval: { icon: '⚡', label: 'Interval' },
+  steady:   { icon: '➡️', label: 'Steady' },
+  strength: { icon: '🏋️', label: 'Strength' },
+  mobility: { icon: '🧘', label: 'Mobility' }
+};
+
 // Card "position" tunables — sizing/spacing for every block card in a day column.
 const BLOCK_CARD_LAYOUT = {
   minHeightPx:    44,
@@ -63,6 +73,10 @@ function categoryStyle(category) {
   return BLOCK_CATEGORY_STYLE[category] || { label: category, accent: '#94a3b8', fallbackIcon: '•' };
 }
 
+function modeStyle(mode) {
+  return MODE_STYLE[mode] || { icon: '•', label: mode || 'Unknown' };
+}
+
 function cardInlineStyle(category) {
   return {
     '--block-accent': categoryStyle(category).accent,
@@ -91,7 +105,7 @@ function sortableOptions(extra = {}) {
     // for that — otherwise Sortable still calls preventDefault() on the
     // filtered element's initiating touch, which can suppress the
     // browser's synthesized click on mobile.
-    filter:          ['.palette-item-info', '.block-card-action-btn', extra.filter].filter(Boolean).join(', '),
+    filter:          ['.palette-item-info', '.block-card-action-btn', '.block-card-expand-btn', '.subblock-panel', extra.filter].filter(Boolean).join(', '),
     preventOnFilter: false
   };
 }
@@ -101,6 +115,6 @@ function sortableOptions(extra = {}) {
 // there's no Vue-bound element to attach an inline style to.
 document.documentElement.style.setProperty('--block-ghost-opacity', BLOCK_DRAG_CONFIG.ghostOpacity);
 
-window.BlockStyleConfig = { BLOCK_CATEGORY_STYLE, BLOCK_CARD_LAYOUT, BLOCK_DRAG_CONFIG, categoryStyle, cardInlineStyle, sortableOptions };
+window.BlockStyleConfig = { BLOCK_CATEGORY_STYLE, MODE_STYLE, BLOCK_CARD_LAYOUT, BLOCK_DRAG_CONFIG, categoryStyle, modeStyle, cardInlineStyle, sortableOptions };
 
 })();
