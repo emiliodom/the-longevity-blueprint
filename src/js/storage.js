@@ -64,6 +64,18 @@ const Storage = {
     else    localStorage.removeItem('bp_active_profile');
   },
 
+  // ── Last-viewed page tracking (localStorage only) ────────────────────────
+  // So a reload lands back on whatever page the user was on, same idea as
+  // active-profile tracking above.
+
+  getLastPageId() {
+    return localStorage.getItem('bp_last_page');
+  },
+
+  setLastPageId(id) {
+    localStorage.setItem('bp_last_page', id);
+  },
+
   // ── Profiles ──────────────────────────────────────────────────────────────
 
   async getProfiles() {

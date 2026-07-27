@@ -101,6 +101,14 @@ Every route mounted under `/api/profiles/:id/...` uses `express.Router({ mergePa
 
 Every table's primary key is a `VARCHAR(36)` UUID generated app-side with `crypto.randomUUID()` (Node's built-in `crypto`, no dependency) — not `AUTO_INCREMENT`. This keeps every route returning the same opaque string `id` the frontend has always expected (`storage.js`/`app.js` compare/store ids as strings, e.g. `bp_active_profile` in localStorage), so swapping JSON files for MySQL required zero changes to how the frontend handles ids.
 
+## Client-side persisted UI state (localStorage)
+
+Two small pieces of navigation state survive a page reload via plain `localStorage` (both in `storage.js`, both restored in `app.js`'s `loadProfile()` — i.e. once a profile is actually loaded and `appState` is about to become `'app'`, not any earlier):
+- `bp_active_profile` — which profile was last active (`getActiveProfileId`/`setActiveProfileId`), pre-existing.
+- `bp_last_page` — which page/tab (`currentPageId`, matched against the `DB` array) the user was last on (`getLastPageId`/`setLastPageId`, set from `app.js`'s `setPage()`). Restoring it re-validates the saved id still exists in `DB` first — content can change between visits — falling back to the `currentPageId` default (page 1) rather than landing on a stale/missing page.
+
+Both are plain client-side conveniences, not synced server-side or tied to the account — a different browser/device starts fresh.
+
 ## Dates
 
 MySQL/MariaDB `DATE` columns (`target_date`, `week_start_date`, `period_start`, `period_end`) are configured in `pool.js` via `dateStrings: ['DATE']` to come back as plain `'YYYY-MM-DD'` strings, not JS `Date` objects — a `Date` would serialize through `res.json()` with a UTC timestamp attached, silently shifting the calendar date in some timezones. `DATETIME` columns (`created_at`, etc.) are left as `Date` objects, matching the ISO-with-timezone strings the app already returned in v2.

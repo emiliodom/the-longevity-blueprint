@@ -302,6 +302,14 @@ const app = createApp({
         this.workoutLog = await Storage.getLog(id);
         this.appState   = 'app';
         this.newLog.date = new Date().toISOString().split('T')[0];
+
+        // Restore whatever page the user was last on — but only if that
+        // page id still exists (DB content can change between visits), else
+        // fall back to the currentPageId default rather than landing on
+        // a blank/mismatched page.
+        const savedPageId = Number(Storage.getLastPageId());
+        if (savedPageId && DB.find(p => p.id === savedPageId)) this.currentPageId = savedPageId;
+
         this.loadHeroImage();
       } catch (e) {
         console.error('Load profile failed:', e);
@@ -364,6 +372,7 @@ const app = createApp({
 
     setPage(id) {
       this.currentPageId = id;
+      Storage.setLastPageId(id);
       this.sidebarOpen   = false;
       this.loadHeroImage();
       this.$nextTick(() => {
