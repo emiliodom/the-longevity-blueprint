@@ -814,6 +814,94 @@ html.light-mode code.text-sky-400 {
 }
 .subblock-add-btn:hover { background: rgba(56,189,248,.2); }
 
+/* ── Inline timer widget (blockTimerWidget.js) — a compact glance-timer on
+   an expanded block card. Same phase color language as the full-page
+   Sprint Timer (.timer-phase-*), scaled down to fit inside a card instead
+   of a full screen, and with no audio/voice controls (see the file's
+   header comment for why). */
+.inline-timer {
+  margin-top:  .4rem;
+  padding-top: .4rem;
+  border-top:  1px dashed var(--c-border);
+  cursor:      default;
+}
+.inline-timer-start-btn {
+  width:         100%;
+  text-align:    center;
+  font-size:     .7rem;
+  font-weight:   600;
+  color:         var(--c-accent);
+  background:    rgba(56,189,248,.1);
+  border:        1px dashed var(--c-accent);
+  border-radius: .4rem;
+  padding:       .35rem;
+  cursor:        pointer;
+}
+.inline-timer-start-btn:hover { background: rgba(56,189,248,.2); }
+
+.inline-timer-running {
+  text-align:    center;
+  border-radius: .5rem;
+  padding:       .5rem;
+}
+.inline-timer-phase-work   { background: rgba(52,211,153,.15); }
+.inline-timer-phase-rest   { background: rgba(251,191,36,.15); }
+.inline-timer-phase-steady { background: rgba(56,189,248,.15); }
+.inline-timer-phase-done   { background: rgba(56,189,248,.15); }
+
+.inline-timer-step-label {
+  font-size:     .65rem;
+  color:         var(--c-subtle);
+  white-space:   nowrap;
+  overflow:      hidden;
+  text-overflow: ellipsis;
+}
+.inline-timer-display {
+  font-size:            1.6rem;
+  font-weight:          800;
+  line-height:          1.1;
+  color:                var(--c-text);
+  font-variant-numeric: tabular-nums;
+}
+.inline-timer-phase-label {
+  font-size:      .6rem;
+  font-weight:    700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color:          var(--c-text2);
+}
+.inline-timer-controls {
+  display:         flex;
+  gap:             .35rem;
+  justify-content: center;
+  margin-top:      .35rem;
+}
+.inline-timer-btn {
+  font-size:     .75rem;
+  padding:       .25rem .5rem;
+  border-radius: .35rem;
+  background:    var(--c-surface2);
+  color:         var(--c-text2);
+  border:        1px solid var(--c-border);
+  cursor:        pointer;
+}
+.inline-timer-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
+.inline-timer-steps {
+  display:         flex;
+  gap:             .25rem;
+  justify-content: center;
+  margin-top:      .35rem;
+}
+.inline-timer-step-dot {
+  width:         .4rem;
+  height:        .4rem;
+  border-radius: 50%;
+  background:    var(--c-border);
+  display:       inline-block;
+}
+.inline-timer-step-dot-done    { background: #34d399; }
+.inline-timer-step-dot-current { background: var(--c-accent); box-shadow: 0 0 0 2px rgba(56,189,248,.35); }
+
 /* ── Month view (read-only calendar overview) ─────────────────────────────── */
 .month-grid-weekdays,
 .month-grid-row {

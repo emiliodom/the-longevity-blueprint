@@ -24,7 +24,7 @@
  */
 (function () {
 
-/* global app, Sortable, Storage, BlockStyleConfig */
+/* global app, Sortable, Storage, BlockStyleConfig, WorkoutQueue */
 
 // Cross-component handoff to the Sprint Timer page, same pattern as
 // goalDashboard.js's pendingAutobuildGoalId -> WeekBuilder handoff: a field
@@ -404,6 +404,12 @@ app.component('WeekBuilder', {
     modeIcon(sb) {
       return BlockStyleConfig.modeStyle(this.subExercise(sb)?.mode).icon;
     },
+    // Feeds BlockTimerWidget — see workoutQueue.js's header comment for why
+    // this exact function is also what sprintTimer.js's full-page timer
+    // consumes for the "▶ Start" handoff, so both surfaces always agree.
+    workoutQueueFor(block) {
+      return WorkoutQueue.buildQueueFromBlock(block, this.exercises);
+    },
     async removeSubBlock(block, subId) {
       const subBlocks = this.subBlocksFor(block).filter(sb => sb.id !== subId);
       await Storage.updateBlock(this.profile.id, this.week.id, block.id, { details: { ...block.details, subBlocks } });
@@ -608,6 +614,7 @@ app.component('WeekBuilder', {
                     <button @click="removeSubBlock(block, sb.id)" class="subblock-remove-btn">✕</button>
                   </div>
                   <button @click="openAddSubBlock(block)" class="subblock-add-btn">+ Add exercise</button>
+                  <block-timer-widget :queue="workoutQueueFor(block)"></block-timer-widget>
                 </div>
 
                 <div class="block-card-actions">
