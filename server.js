@@ -100,9 +100,29 @@ app.use((err, _req, res, _next) => {
 });
 
 // ── Start ─────────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`\n  Longevity Blueprint v3  →  http://localhost:${PORT}`);
   console.log(`  Uploads dir: ${UPLOADS_DIR}`);
   console.log(`  MySQL:       ${process.env.DB_HOST || 'localhost'}/${process.env.DB_NAME || 'longevity_blueprint'}`);
   console.log(`  (Run "npm run db:setup" first if you haven't created the schema yet.)\n`);
 });
+
+// ── Graceful shutdown ──────────────────────────────────────────────────────
+// Railway (and most PaaS hosts) sends SIGTERM on every redeploy/restart —
+// completely routine, not a crash. But node server.js never handled it, so
+// the process was just killed mid-flight; npm's `npm start` wrapper then
+// logs that abrupt kill as "npm error signal SIGTERM", which reads as a
+// failed deploy even though nothing actually broke. Catching the signal and
+// exiting cleanly (code 0) once the server and DB connections are actually
+// closed avoids that false alarm.
+function shutdown(signal) {
+  console.log(`\n  ${signal} received — shutting down gracefully...`);
+  server.close(() => {
+    sessionStore.close();
+    pool.end().catch(() => {}).finally(() => process.exit(0));
+  });
+  // Don't hang forever if something above never resolves.
+  setTimeout(() => process.exit(0), 5000).unref();
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT',  () => shutdown('SIGINT'));
