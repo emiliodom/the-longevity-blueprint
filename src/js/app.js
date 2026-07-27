@@ -48,6 +48,10 @@ const app = createApp({
       // ── Navigation ─────────────────────────────────────────────────────
       currentPageId: 1,
       sidebarOpen:   false,
+      // Desktop-only collapse (more width for content-dense pages like the
+      // Week Builder's Week/Month views) — separate from sidebarOpen, which
+      // is mobile's off-canvas drawer visibility.
+      sidebarCollapsed: localStorage.getItem('bp_sidebar_collapsed') === 'true',
       navGroups:     NAV_GROUPS,
 
       // ── Dashboard ──────────────────────────────────────────────────────
@@ -168,6 +172,9 @@ const app = createApp({
         clearTimeout(this.dashSaveTimer);
         this.dashSaveTimer = setTimeout(() => this.persistDashboard(), 500);
       }
+    },
+    sidebarCollapsed(val) {
+      localStorage.setItem('bp_sidebar_collapsed', val);
     }
   },
 
