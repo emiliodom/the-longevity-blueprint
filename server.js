@@ -11,12 +11,15 @@
 
 require('dotenv').config({ quiet: true });
 
-const express = require('express');
+const express   = require('express');
 require('express-async-errors'); // patches Express 4 to forward rejected promises to the error handler below
-const session = require('express-session');
-const helmet  = require('helmet');
-const fs      = require('fs');
-const path    = require('path');
+const session   = require('express-session');
+const MySQLStore = require('express-mysql-session')(session);
+const helmet    = require('helmet');
+const fs        = require('fs');
+const path      = require('path');
+
+const { pool } = require('./src/server/db/pool');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -51,7 +54,17 @@ app.get('/', (_req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 app.use('/src', express.static(path.join(__dirname, 'src')));
 app.use('/uploads', express.static(UPLOADS_DIR));
 
+// MySQL-backed, not the express-session default in-memory MemoryStore —
+// MemoryStore silently drops every logged-in session on any process
+// restart (a redeploy, a crash, nodemon picking up a file change), which
+// surfaces to users as random "Unauthorized" errors on actions taken after
+// a restart despite the page still showing them as logged in. Reuses the
+// app's existing MySQL pool rather than opening a second connection pool.
+const sessionStore = new MySQLStore({}, pool);
+sessionStore.on('error', err => console.error('Session store error:', err.message));
+
 app.use(session({
+  store:             sessionStore,
   secret:            process.env.SESSION_SECRET || 'bp-longevity-secret-2024',
   resave:            false,
   saveUninitialized: false,
