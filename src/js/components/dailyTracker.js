@@ -11,27 +11,43 @@
  */
 (function () {
 
-/* global app, Storage */
+/* global app, Storage, BlockStyleConfig */
 
 function toIsoDateLocal(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+// Same date math as weekBuilder.js's mondayOf() — duplicated rather than
+// shared, per this file's own header comment on why these small date
+// helpers are kept as private per-file copies instead of a shared global.
+function mondayOf(date) {
+  const d = new Date(date);
+  const day = (d.getDay() + 6) % 7; // 0 = Monday
+  d.setDate(d.getDate() - day);
+  d.setHours(0, 0, 0, 0);
+  return d;
 }
 
 app.component('DailyTracker', {
   props: ['profile'],
   data() {
     return {
-      date:      toIsoDateLocal(new Date()),
-      entry:     { stravaUrl: '', notes: '', screenshots: [] },
-      loading:   false,
-      saving:    false,
-      uploading: false
+      date:          toIsoDateLocal(new Date()),
+      entry:         { stravaUrl: '', notes: '', screenshots: [] },
+      plannedBlocks: [],
+      loading:       false,
+      saving:        false,
+      uploading:     false
     };
   },
   async mounted() {
-    await this.loadEntry();
+    await this.refreshDay();
   },
   methods: {
+    async refreshDay() {
+      await Promise.all([this.loadEntry(), this.loadPlannedBlocks()]);
+    },
+
     async loadEntry() {
       this.loading = true;
       try {
@@ -42,11 +58,37 @@ app.component('DailyTracker', {
       }
     },
 
+    // Pulls in whatever Week Builder planned for this exact date — every
+    // week is its own independently-stored row (training_weeks is unique on
+    // profile_id + week_start_date), so this always resolves to that
+    // specific week's data, same as flipping to any date on a calendar
+    // would, never a shared/generic "current week."
+    async loadPlannedBlocks() {
+      const d = new Date(`${this.date}T00:00:00`);
+      const weekStartDate = toIsoDateLocal(mondayOf(d));
+      const dayOfWeek = (d.getDay() + 6) % 7; // 0 = Monday, matches training_blocks.day_of_week
+      const week = await Storage.getWeekByDate(this.profile.id, weekStartDate);
+      this.plannedBlocks = (week?.blocks || [])
+        .filter(b => b.dayOfWeek === dayOfWeek)
+        .sort((a, b) => a.sortOrder - b.sortOrder);
+    },
+
+    blockIcon(block) {
+      return BlockStyleConfig.categoryStyle(block.blockType).fallbackIcon;
+    },
+    // Template expressions only see component data/methods/props, not
+    // arbitrary window globals — so, same as weekBuilder.js's cardStyle(),
+    // BlockStyleConfig access is wrapped in a method rather than referenced
+    // directly in the template.
+    blockAccentStyle(block) {
+      return { '--block-accent': BlockStyleConfig.categoryStyle(block.blockType).accent };
+    },
+
     async shiftDay(delta) {
       const d = new Date(`${this.date}T00:00:00`);
       d.setDate(d.getDate() + delta);
       this.date = toIsoDateLocal(d);
-      await this.loadEntry();
+      await this.refreshDay();
     },
 
     async save() {
@@ -83,8 +125,17 @@ app.component('DailyTracker', {
       <div class="module-card space-y-4">
         <div class="flex items-center gap-2">
           <button @click="shiftDay(-1)" class="pill-btn">‹</button>
-          <input v-model="date" @change="loadEntry" type="date" class="calc-input max-w-[10rem]">
+          <input v-model="date" @change="refreshDay" type="date" class="calc-input max-w-[10rem]">
           <button @click="shiftDay(1)" class="pill-btn">›</button>
+        </div>
+
+        <div v-if="plannedBlocks.length" class="planned-blocks">
+          <label class="text-xs text-slate-400 mb-1 block">Planned for this day (from Week Builder)</label>
+          <div class="flex flex-wrap gap-2">
+            <span v-for="b in plannedBlocks" :key="b.id" class="planned-block-chip" :style="blockAccentStyle(b)">
+              {{ blockIcon(b) }} {{ b.title }} <span class="text-slate-500">· {{ b.durationMin || '?' }}m</span>
+            </span>
+          </div>
         </div>
 
         <div>

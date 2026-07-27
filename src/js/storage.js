@@ -203,6 +203,15 @@ const Storage = {
     return res.json();
   },
 
+  // Read-only — never creates a week row, unlike ensureWeek(). For the
+  // Daily Tracker showing what was planned for a date without seeding an
+  // empty week for every date anyone ever views.
+  async getWeekByDate(profileId, weekStartDate) {
+    const res = await fetch(`/api/profiles/${profileId}/training/weeks/by-date/${weekStartDate}`);
+    if (!res.ok) return null;
+    return res.json();
+  },
+
   async ensureWeek(profileId, weekStartDate, goalId) {
     const res = await fetch(`/api/profiles/${profileId}/training/weeks`, {
       method:  'POST',

@@ -5,6 +5,7 @@
  *   GET    /api/training/block-templates
  *   GET    /api/training/exercises                                 — catalog for the block-detail modal
  *   GET    /api/profiles/:id/training/weeks
+ *   GET    /api/profiles/:id/training/weeks/by-date/:weekStartDate — read-only; never creates a row (for Daily Tracker)
  *   POST   /api/profiles/:id/training/weeks                       — get-or-create by weekStartDate
  *   GET    /api/profiles/:id/training/weeks/:weekId
  *   PUT    /api/profiles/:id/training/weeks/:weekId                — e.g. link/unlink a goal
@@ -79,6 +80,23 @@ router.get('/weeks', async (req, res) => {
     [req.params.id]
   );
   res.json(rows.map(r => ({ id: r.id, weekStartDate: r.week_start_date, goalId: r.goal_id })));
+});
+
+// Read-only lookup by weekStartDate — unlike POST /weeks below, this never
+// creates a row. Used by the Daily Tracker to show what was planned for a
+// given day without every date view silently seeding an empty week row for
+// dates nobody ever opened the Week Builder for.
+router.get('/weeks/by-date/:weekStartDate', async (req, res) => {
+  if (!(await assertOwnsProfile(req.params.id, req.session.userId)))
+    return res.status(404).json({ error: 'Profile not found' });
+
+  const rows = await query(
+    'SELECT id FROM training_weeks WHERE profile_id = ? AND week_start_date = ?',
+    [req.params.id, req.params.weekStartDate]
+  );
+  if (!rows[0]) return res.json({ id: null, weekStartDate: req.params.weekStartDate, goalId: null, blocks: [] });
+
+  res.json(await loadWeekWithBlocks(rows[0].id));
 });
 
 // Get-or-create by weekStartDate so the frontend can always "ensure this week exists"
