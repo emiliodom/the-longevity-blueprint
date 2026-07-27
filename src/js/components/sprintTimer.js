@@ -122,6 +122,15 @@ app.component('SprintTimer', {
     if (savedVolume   !== null) this.volume          = Number(savedVolume);
     if (savedWarmup   !== null) this.warmupEnabled   = savedWarmup === 'true';
     if (savedCooldown !== null) this.cooldownEnabled = savedCooldown === 'true';
+
+    // "Start Workout" handoff from a Week Builder block — same pattern as
+    // goalDashboard.js's pendingAutobuildGoalId -> WeekBuilder handoff, a
+    // field on the shared $root instance. Only pre-selects the category;
+    // there's no attempt to map a specific exercise to a timer preset.
+    if (this.$root.pendingTimerCategory) {
+      this.category = this.$root.pendingTimerCategory;
+      this.$root.pendingTimerCategory = null;
+    }
   },
   beforeUnmount() {
     this._stopTicking();

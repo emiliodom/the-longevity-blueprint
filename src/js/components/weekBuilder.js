@@ -26,6 +26,12 @@
 
 /* global app, Sortable, Storage, BlockStyleConfig */
 
+// Cross-component handoff to the Sprint Timer page, same pattern as
+// goalDashboard.js's pendingAutobuildGoalId -> WeekBuilder handoff: a field
+// on the shared $root instance is enough of a signal without a separate
+// state-management library. See sprintTimer.js's mounted() for the other side.
+const SPRINT_TIMER_PAGE_ID = 31;
+
 function toIsoDateLocal(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
@@ -75,7 +81,12 @@ app.component('WeekBuilder', {
       // Detail modal: normalized to { title, icon, durationMin, category }
       // regardless of whether it was opened from a palette template or a
       // placed board block — see openTemplateDetail()/openBlockDetail().
+      // This is the "Swap" flow — browsing alternatives to replace the block.
       detailItem: null,
+      // Insights panel: the single EXERCISE_TEMPLATES entry currently
+      // resolved for one specific placed block (see resolvedExercise()) —
+      // a deep-dive on what's already assigned, not a list of alternatives.
+      insightItem: null,
       DAY_LABELS
     };
   },
@@ -349,6 +360,38 @@ app.component('WeekBuilder', {
       await this.loadWeek();
     },
 
+    // ── Exercise insights ────────────────────────────────────────────────
+    // Resolves a placed block to one specific EXERCISE_TEMPLATES entry —
+    // by details.exerciseId first (set by selectExercise() above whenever a
+    // block has actually been swapped), falling back to an exact name match
+    // for blocks placed straight from a palette template and never swapped.
+    // Returns null if neither resolves, which the modal shows as an
+    // empty state rather than guessing.
+    resolvedExercise(block) {
+      if (block.details?.exerciseId) {
+        const byId = this.exercises.find(e => e.id === block.details.exerciseId);
+        if (byId) return byId;
+      }
+      return this.exercises.find(e => e.name === block.title) || null;
+    },
+    openExerciseInsights(block) {
+      this.insightItem = { block, exercise: this.resolvedExercise(block) };
+    },
+    closeInsights() {
+      this.insightItem = null;
+    },
+
+    // ── Start Workout → Sprint Timer handoff ─────────────────────────────
+    // Only run/cycling/swimming have timer presets (see lib/timerPresets.js)
+    // — other categories still navigate over, just without a category
+    // pre-selected, since there's nothing sport-specific to preselect.
+    startWorkout(block) {
+      if (['run', 'cycling', 'swimming'].includes(block.blockType)) {
+        this.$root.pendingTimerCategory = block.blockType;
+      }
+      this.$root.setPage(SPRINT_TIMER_PAGE_ID);
+    },
+
     // ── Drag and drop wiring ────────────────────────────────────────────
     destroySortables() {
       this._sortables.forEach(s => s.destroy());
@@ -493,7 +536,9 @@ app.component('WeekBuilder', {
                 </div>
                 <div class="text-[10px] text-slate-500 mt-0.5">{{ block.durationMin || '?' }} min</div>
                 <div class="block-card-actions">
-                  <button @click.stop="openBlockDetail(block)" class="block-card-action-btn">ℹ️ Info</button>
+                  <button @click.stop="openBlockDetail(block)" class="block-card-action-btn">🔄 Swap</button>
+                  <button @click.stop="openExerciseInsights(block)" class="block-card-action-btn">📊 Insights</button>
+                  <button @click.stop="startWorkout(block)" class="block-card-action-btn">▶ Start</button>
                   <button @click.stop="deleteBlock(block.id)" class="block-card-action-btn block-card-action-btn-danger">✕</button>
                 </div>
               </li>
@@ -544,6 +589,30 @@ app.component('WeekBuilder', {
             </div>
             <p v-if="!detailExercises.length" class="text-xs text-slate-500">No exercises catalogued for this category yet.</p>
           </div>
+        </div>
+      </div>
+
+      <!-- Exercise Insights: deep-dive on the ONE exercise resolved for this
+           placed block — not a list of alternatives, that's the Swap modal above. -->
+      <div v-if="insightItem" class="detail-modal-backdrop" @click.self="closeInsights">
+        <div class="detail-modal module-card">
+          <div class="flex items-start justify-between gap-3 mb-1">
+            <h3 class="text-white font-semibold text-sm">{{ blockIcon(insightItem.block) }} {{ insightItem.block.title }}</h3>
+            <button @click="closeInsights" class="text-slate-500 hover:text-red-400 text-sm flex-shrink-0">✕</button>
+          </div>
+          <p class="text-xs text-slate-500 mb-3">{{ categoryLabel(insightItem.block.blockType) }} · {{ insightItem.block.durationMin || '?' }} min</p>
+          <template v-if="insightItem.exercise">
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <span class="text-xs text-slate-500 font-medium uppercase tracking-wider">Exercise insights</span>
+              <span class="exercise-badge" :class="'exercise-badge-' + insightItem.exercise.difficulty">{{ insightItem.exercise.difficulty }}</span>
+            </div>
+            <p class="text-sm text-slate-300 leading-relaxed mb-3">{{ insightItem.exercise.description }}</p>
+            <div class="insight-callout">💡 {{ insightItem.exercise.insight }}</div>
+            <p class="text-[11px] text-slate-500 mt-3">{{ insightItem.exercise.dosage }} · {{ insightItem.exercise.equipment }}</p>
+          </template>
+          <p v-else class="text-xs text-slate-500">
+            This block isn't linked to a specific exercise yet — use Swap to pick one from the catalog and its insights will show up here.
+          </p>
         </div>
       </div>
     </div>

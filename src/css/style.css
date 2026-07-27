@@ -713,24 +713,28 @@ html.light-mode code.text-sky-400 {
    touch-filter fix elsewhere) prone to being captured as a drag gesture on
    mobile. A row below the title, spatially separate from where you'd grab
    the card to drag it, is both clearer and safer to tap. */
+/* 2x2 grid, not a single row — 4 buttons (Swap/Insights/Start/Remove) in one
+   row would get too cramped on the narrower Week-view columns. */
 .block-card-actions {
-  display:    flex;
-  gap:        .35rem;
-  margin-top: .4rem;
+  display:               grid;
+  grid-template-columns: 1fr 1fr;
+  gap:                   .3rem;
+  margin-top:            .4rem;
 }
 .block-card-action-btn {
-  flex:          1;
-  font-size:     .68rem;
-  padding:       .3rem .4rem;
+  font-size:     .65rem;
+  padding:       .3rem .3rem;
   border-radius: .35rem;
   background:    var(--c-surface2);
   color:         var(--c-text2);
   border:        1px solid var(--c-border);
   text-align:    center;
   transition:    border-color .15s, color .15s;
+  white-space:   nowrap;
+  overflow:      hidden;
+  text-overflow: ellipsis;
 }
 .block-card-action-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
-.block-card-action-btn-danger { flex: 0 0 auto; padding-left: .6rem; padding-right: .6rem; }
 .block-card-action-btn-danger:hover { border-color: #f87171; color: #f87171; }
 
 /* ── Month view (read-only calendar overview) ─────────────────────────────── */
@@ -830,6 +834,16 @@ html.light-mode code.text-sky-400 {
   transition:    background .15s;
 }
 .exercise-select-btn:hover { background: rgba(56,189,248,.2); }
+
+.insight-callout {
+  background:    rgba(56,189,248,.1);
+  border:        1px solid var(--c-accent);
+  border-radius: .6rem;
+  padding:       .75rem .9rem;
+  font-size:     .82rem;
+  color:         var(--c-text);
+  line-height:   1.5;
+}
 
 /* ── Goal Dashboard ───────────────────────────────────────────────────────── */
 .goal-card {
