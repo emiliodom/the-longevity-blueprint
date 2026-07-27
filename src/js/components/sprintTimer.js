@@ -76,6 +76,7 @@ app.component('SprintTimer', {
     this._stopTicking();
     this._releaseWakeLock();
     if (window.speechSynthesis) window.speechSynthesis.cancel();
+    if (this._audioCtx) { this._audioCtx.close().catch(() => {}); this._audioCtx = null; }
   },
   methods: {
     formatTime,
@@ -150,11 +151,18 @@ app.component('SprintTimer', {
     },
 
     // ── Timer control ─────────────────────────────────────────────────────
+    // Anchored to Date.now(), not a naive per-tick decrement — setInterval
+    // ticks can be delayed (a busy event loop, a backgrounded tab throttled
+    // to <1/sec) without that delay ever being reclaimed, so a pure
+    // decrement drifts behind real elapsed time the longer it runs. Every
+    // tick recomputes secondsLeft from _phaseEndAt instead, so a late tick
+    // just catches up to the true remaining time rather than compounding.
     start() {
       this.phase        = 'work';
       this.secondsLeft  = this.workSec;
       this.currentRound = 1;
       this.running      = true;
+      this._phaseEndAt  = Date.now() + this.workSec * 1000;
       this._requestWakeLock();
       this._playTransition();
       this._speak('Go');
@@ -162,10 +170,12 @@ app.component('SprintTimer', {
     },
     pause() {
       this.running = false;
+      this._pausedRemainingMs = Math.max(0, this._phaseEndAt - Date.now());
       this._stopTicking();
     },
     resume() {
       this.running = true;
+      this._phaseEndAt = Date.now() + this._pausedRemainingMs;
       this._requestWakeLock();
       this._startTicking();
     },
@@ -176,6 +186,7 @@ app.component('SprintTimer', {
       this.secondsLeft = 0;
       this.currentRound = 0;
       this.running = false;
+      this._phaseEndAt = null;
     },
 
     _startTicking() {
@@ -187,9 +198,10 @@ app.component('SprintTimer', {
     },
 
     _tick() {
-      this.secondsLeft--;
+      const remainingMs = this._phaseEndAt - Date.now();
+      this.secondsLeft = Math.max(0, Math.ceil(remainingMs / 1000));
       if (this.secondsLeft > 0 && this.secondsLeft <= 3) this._playTick();
-      if (this.secondsLeft <= 0) this._transitionPhase();
+      if (remainingMs <= 0) this._transitionPhase();
     },
 
     _transitionPhase() {
@@ -197,12 +209,14 @@ app.component('SprintTimer', {
         if (this.currentRound >= this.rounds) { this._finish(); return; }
         this.phase = 'rest';
         this.secondsLeft = this.restSec;
+        this._phaseEndAt = Date.now() + this.restSec * 1000;
         this._playTransition();
         this._speak('Rest');
       } else if (this.phase === 'rest') {
         this.currentRound++;
         this.phase = 'work';
         this.secondsLeft = this.workSec;
+        this._phaseEndAt = Date.now() + this.workSec * 1000;
         this._playTransition();
         this._speak('Go');
       }

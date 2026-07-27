@@ -49,12 +49,18 @@ app.component('DailyTracker', {
     },
 
     async loadEntry() {
+      const requestedDate = this.date;
       this.loading = true;
       try {
-        const data = await Storage.getTrackerDay(this.profile.id, this.date);
+        const data = await Storage.getTrackerDay(this.profile.id, requestedDate);
+        // Rapid day-shift clicks fire overlapping requests — if the date
+        // moved on again before this one resolved, its response is for a
+        // day we're no longer showing; applying it would overwrite the
+        // current date's entry with a stale one.
+        if (this.date !== requestedDate) return;
         this.entry = data || { stravaUrl: '', notes: '', screenshots: [] };
       } finally {
-        this.loading = false;
+        if (this.date === requestedDate) this.loading = false;
       }
     },
 
@@ -64,10 +70,12 @@ app.component('DailyTracker', {
     // specific week's data, same as flipping to any date on a calendar
     // would, never a shared/generic "current week."
     async loadPlannedBlocks() {
-      const d = new Date(`${this.date}T00:00:00`);
+      const requestedDate = this.date;
+      const d = new Date(`${requestedDate}T00:00:00`);
       const weekStartDate = toIsoDateLocal(mondayOf(d));
       const dayOfWeek = (d.getDay() + 6) % 7; // 0 = Monday, matches training_blocks.day_of_week
       const week = await Storage.getWeekByDate(this.profile.id, weekStartDate);
+      if (this.date !== requestedDate) return; // see loadEntry()'s comment above
       this.plannedBlocks = (week?.blocks || [])
         .filter(b => b.dayOfWeek === dayOfWeek)
         .sort((a, b) => a.sortOrder - b.sortOrder);

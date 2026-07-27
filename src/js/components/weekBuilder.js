@@ -61,7 +61,7 @@ app.component('WeekBuilder', {
       showPalette: false,
       // Detail modal: normalized to { title, icon, durationMin, category }
       // regardless of whether it was opened from a palette template or a
-      // placed board block — see openDetail().
+      // placed board block — see openTemplateDetail()/openBlockDetail().
       detailItem: null,
       DAY_LABELS
     };

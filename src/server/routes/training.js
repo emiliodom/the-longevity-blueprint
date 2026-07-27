@@ -1,10 +1,15 @@
 /**
  * routes/training.js — Week Training Builder (drag-and-drop week + blocks)
  *
+ * All routes are mounted under /api/profiles/:id/training (see server.js) —
+ * :id is unused by the three static-content routes below (block-templates/
+ * exercises/timer-presets), but they still sit on this router rather than a
+ * standalone one so they share its requireAuth middleware.
+ *
  * API surface (new):
- *   GET    /api/training/block-templates
- *   GET    /api/training/exercises                                 — catalog for the block-detail modal
- *   GET    /api/training/timer-presets                             — structured rounds/work/rest for the Sprint Timer
+ *   GET    /api/profiles/:id/training/block-templates
+ *   GET    /api/profiles/:id/training/exercises                    — catalog for the block-detail modal
+ *   GET    /api/profiles/:id/training/timer-presets                — structured rounds/work/rest for the Sprint Timer
  *   GET    /api/profiles/:id/training/weeks
  *   GET    /api/profiles/:id/training/weeks/by-date/:weekStartDate — read-only; never creates a row (for Daily Tracker)
  *   POST   /api/profiles/:id/training/weeks                       — get-or-create by weekStartDate

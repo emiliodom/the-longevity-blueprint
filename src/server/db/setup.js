@@ -47,8 +47,13 @@ async function main() {
   // ADD COLUMN IF NOT EXISTS isn't supported on every MySQL/MariaDB version —
   // so this tolerates the duplicate-column error instead, without risking
   // one failed statement aborting every CREATE TABLE after it in the batch.
-  const alterStatements = schema.match(/^ALTER TABLE.*;$/gm) || [];
-  const createOnly = schema.replace(/^ALTER TABLE.*;$/gm, '');
+  // ^...m anchors the match to an actual line-start "ALTER TABLE" — without
+  // it, this previously matched the literal text "ALTER TABLE" inside any
+  // comment mentioning it too (this file's own comments do), swallowing
+  // real SQL into the extracted "statement". [\s\S]*? (not just `.*`) still
+  // lets the statement body itself span multiple lines.
+  const alterStatements = schema.match(/^ALTER TABLE[\s\S]*?;/gm) || [];
+  const createOnly = schema.replace(/^ALTER TABLE[\s\S]*?;/gm, '');
 
   await conn.query(createOnly);
   for (const statement of alterStatements) {
