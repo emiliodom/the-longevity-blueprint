@@ -28,7 +28,7 @@ function fileToDataUrl(absPath) {
   return `data:image/${mime};base64,${b64}`;
 }
 
-function buildPrompt(scope, profile, logs, trackers, meals, supplementsTaken) {
+function buildIntro(scope, profile, logs) {
   const lines = [];
   lines.push(`You are a longevity/endurance coach analyzing training, nutrition, and supplement data for athlete "${profile.name}" (age ${profile.age ?? '?'}, ${profile.gender ?? 'unspecified'}).`);
   lines.push(`Analysis scope: ${scope}.`);
@@ -38,10 +38,12 @@ function buildPrompt(scope, profile, logs, trackers, meals, supplementsTaken) {
     ? logs.map(l => `- ${l.date} [${l.type}] duration=${l.duration ?? '?'}min distance=${l.distance ?? '-'}km weight=${l.weight ?? '-'}kg reps=${l.reps ?? '-'} notes="${l.notes ?? ''}"`).join('\n')
     : '(none logged in this period)');
   lines.push('');
-  lines.push('Daily tracker notes / Strava links:');
-  lines.push(trackers.length
-    ? trackers.map(t => `- ${t.date}: strava=${t.strava_url ?? '-'} notes="${t.notes ?? ''}"`).join('\n')
-    : '(none logged in this period)');
+  lines.push('Daily Tracker activities follow below, one per day, each with its own name/notes and — where attached — screenshot images immediately after it. Strava links are intentionally omitted here (they aren\'t fetchable) — go only off each activity\'s name, notes, and any attached screenshot.');
+  return lines.join('\n');
+}
+
+function buildTrailer(meals, supplementsTaken) {
+  const lines = [];
   lines.push('');
   lines.push('Meals logged (Food Planner, Guatemalan-diet based):');
   if (!meals.length) {
@@ -63,23 +65,51 @@ function buildPrompt(scope, profile, logs, trackers, meals, supplementsTaken) {
     lines.push(Object.entries(byDate).map(([date, names]) => `- ${date}: ${names.join(', ')}`).join('\n'));
   }
   lines.push('');
-  lines.push('Any attached images are Strava/insights screenshots from this period — read visible metrics and graphs from them.');
-  lines.push('');
   lines.push('Give a concise, actionable analysis covering training, nutrition, and supplement adherence together: what went well, what to adjust, and any red flags (overtraining signals, missed sessions, injury risk, under/over-eating relative to the logged target). Keep it under 350 words.');
   return lines.join('\n');
 }
 
+// One text block per day, scoped down to that day's individual activities —
+// each activity's own screenshot(s) are placed as image content parts
+// immediately after its text line, not dumped in one pile at the end, so
+// the model can associate a given screenshot with the activity it actually
+// belongs to. Deliberately excludes stravaUrl — see buildIntro()'s note;
+// only name/notes/screenshots feed the analysis.
+function buildActivityContent(trackersByDate, imageBudget) {
+  const content = [];
+  let remainingImages = imageBudget;
+
+  trackersByDate.forEach(day => {
+    if (!day.activities.length) {
+      content.push({ type: 'text', text: `- ${day.date}: (no activity logged)` });
+      return;
+    }
+    content.push({ type: 'text', text: `- ${day.date}:` });
+    day.activities.forEach(activity => {
+      const label = activity.name || 'Untitled activity';
+      content.push({ type: 'text', text: `  • Activity: "${label}" — notes: "${activity.notes || ''}"` });
+      const usable = activity.screenshotPaths.filter(p => fs.existsSync(p)).slice(0, remainingImages);
+      usable.forEach(p => content.push({ type: 'image_url', image_url: { url: fileToDataUrl(p) } }));
+      remainingImages -= usable.length;
+    });
+  });
+
+  return content;
+}
+
 /**
- * @param {{scope:string, profile:object, logs:object[], trackers:object[], screenshotPaths:string[], meals:object[], supplementsTaken:object[]}} input
+ * @param {{scope:string, profile:object, logs:object[], trackersByDate:{date:string,activities:{name:string,notes:string,screenshotPaths:string[]}[]}[], meals:object[], supplementsTaken:object[]}} input
  * @returns {Promise<{summary:string, raw:object}>}
  */
-async function analyze({ scope, profile, logs, trackers, screenshotPaths, meals = [], supplementsTaken = [] }) {
+async function analyze({ scope, profile, logs, trackersByDate, meals = [], supplementsTaken = [] }) {
   const openai = getClient();
   if (!openai) throw new Error('OPENAI_API_KEY is not configured on the server');
 
-  const content = [{ type: 'text', text: buildPrompt(scope, profile, logs, trackers, meals, supplementsTaken) }];
-  const usableImages = screenshotPaths.filter(p => fs.existsSync(p)).slice(0, MAX_IMAGES);
-  usableImages.forEach(p => content.push({ type: 'image_url', image_url: { url: fileToDataUrl(p) } }));
+  const content = [
+    { type: 'text', text: buildIntro(scope, profile, logs) },
+    ...buildActivityContent(trackersByDate, MAX_IMAGES),
+    { type: 'text', text: buildTrailer(meals, supplementsTaken) }
+  ];
 
   const completion = await openai.chat.completions.create({
     model: MODEL,

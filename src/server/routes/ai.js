@@ -91,20 +91,55 @@ router.post('/analyze', async (req, res) => {
       'SELECT * FROM workout_logs WHERE profile_id = ? AND date BETWEEN ? AND ? ORDER BY date ASC',
       [req.params.id, period.start, period.end]
     );
+    // Nested per-day/per-activity shape for lib/openai.js — deliberately
+    // drops strava_url (see that file's buildIntro() note: not fetchable,
+    // so it isn't sent to the model at all) and keeps each activity's own
+    // screenshots grouped with it rather than one flat pool for the day.
     const trackers = await query(
       'SELECT * FROM daily_trackers WHERE profile_id = ? AND date BETWEEN ? AND ? ORDER BY date ASC',
       [req.params.id, period.start, period.end]
     );
     const trackerIds = trackers.map(t => t.id);
-    let screenshotPaths = [];
+    let activityRows = [], legacyShotRows = [];
     if (trackerIds.length) {
       const placeholders = trackerIds.map(() => '?').join(',');
-      const shots = await query(
-        `SELECT file_path FROM tracker_screenshots WHERE tracker_id IN (${placeholders})`,
+      activityRows = await query(
+        `SELECT * FROM tracker_activities WHERE tracker_id IN (${placeholders}) ORDER BY sort_order ASC, created_at ASC`,
         trackerIds
       );
-      screenshotPaths = shots.map(s => path.join(__dirname, '..', '..', '..', s.file_path));
+      legacyShotRows = await query(
+        `SELECT tracker_id, file_path FROM tracker_screenshots WHERE tracker_id IN (${placeholders}) AND activity_id IS NULL`,
+        trackerIds
+      );
     }
+    const activityIds = activityRows.map(a => a.id);
+    let activityShotRows = [];
+    if (activityIds.length) {
+      const placeholders = activityIds.map(() => '?').join(',');
+      activityShotRows = await query(
+        `SELECT activity_id, file_path FROM tracker_screenshots WHERE activity_id IN (${placeholders})`,
+        activityIds
+      );
+    }
+    const toAbs = p => path.join(__dirname, '..', '..', '..', p);
+    const trackersByDate = trackers.map(t => {
+      const activities = activityRows
+        .filter(a => a.tracker_id === t.id)
+        .map(a => ({
+          name: a.name, notes: a.notes,
+          screenshotPaths: activityShotRows.filter(s => s.activity_id === a.id).map(s => toAbs(s.file_path))
+        }));
+      // Legacy pre-multi-activity data (see routes/tracker.js's loadTracker()
+      // comment): synthesize the same single pseudo-activity here too, so
+      // an un-promoted old entry still gets analyzed instead of vanishing.
+      if (!activities.length && (t.strava_url || t.notes || legacyShotRows.some(s => s.tracker_id === t.id))) {
+        activities.push({
+          name: null, notes: t.notes,
+          screenshotPaths: legacyShotRows.filter(s => s.tracker_id === t.id).map(s => toAbs(s.file_path))
+        });
+      }
+      return { date: t.date, activities };
+    });
 
     // Meal items don't carry an absolute date — they're (week_start_date +
     // day_of_week) on their plan — so the date-range filter is computed in
@@ -132,7 +167,7 @@ router.post('/analyze', async (req, res) => {
       date: s.date, name: findSupplement(s.supplement_key)?.name || s.supplement_key
     }));
 
-    const result = await analyze({ scope, profile, logs, trackers, screenshotPaths, meals, supplementsTaken });
+    const result = await analyze({ scope, profile, logs, trackersByDate, meals, supplementsTaken });
 
     const id = crypto.randomUUID();
     await query(
