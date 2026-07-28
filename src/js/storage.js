@@ -304,20 +304,39 @@ const Storage = {
     return res.json();
   },
 
-  async saveTrackerDay(profileId, date, data) {
-    const res = await fetch(`/api/profiles/${profileId}/tracker/${date}`, {
+  // A day can hold several activities (see docs/ARCHITECTURE.md's Daily
+  // Tracker section) — add/update/delete are scoped to one activity at a
+  // time; every call returns the whole day's record (id, date, activities[]).
+  async addTrackerActivity(profileId, date, data) {
+    const res = await fetch(`/api/profiles/${profileId}/tracker/${date}/activities`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Failed to add activity');
+    return res.json();
+  },
+
+  async updateTrackerActivity(profileId, date, activityId, data) {
+    const res = await fetch(`/api/profiles/${profileId}/tracker/${date}/activities/${activityId}`, {
       method:  'PUT',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify(data)
     });
-    if (!res.ok) throw new Error('Failed to save tracker entry');
+    if (!res.ok) throw new Error('Failed to save activity');
     return res.json();
   },
 
-  async uploadScreenshots(profileId, date, files) {
+  async deleteTrackerActivity(profileId, date, activityId) {
+    const res = await fetch(`/api/profiles/${profileId}/tracker/${date}/activities/${activityId}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed to remove activity');
+    return res.json();
+  },
+
+  async uploadActivityScreenshots(profileId, date, activityId, files) {
     const form = new FormData();
     [...files].forEach(f => form.append('screenshots', f));
-    const res = await fetch(`/api/profiles/${profileId}/tracker/${date}/screenshots`, { method: 'POST', body: form });
+    const res = await fetch(`/api/profiles/${profileId}/tracker/${date}/activities/${activityId}/screenshots`, { method: 'POST', body: form });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Upload failed');
     return data;

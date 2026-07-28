@@ -1,14 +1,26 @@
 /**
- * routes/tracker.js — Daily Exercise Tracker (Strava link + screenshots)
+ * routes/tracker.js — Daily Exercise Tracker (multiple activities/day, each
+ * with its own name + Strava link + notes + screenshots)
  *
- * API surface (new):
- *   GET    /api/profiles/:id/tracker/:date                      — { stravaUrl, notes, screenshots: [...] } | null
- *   PUT    /api/profiles/:id/tracker/:date                       — upsert stravaUrl/notes
- *   POST   /api/profiles/:id/tracker/:date/screenshots           — multipart/form-data, field: screenshots (multiple)
+ * API surface:
+ *   GET    /api/profiles/:id/tracker/:date                                — { id, date, activities: [{ id, name, stravaUrl, notes, sortOrder, screenshots: [...] }] }
+ *   POST   /api/profiles/:id/tracker/:date/activities                     — add an activity, body { name, stravaUrl, notes }
+ *   PUT    /api/profiles/:id/tracker/:date/activities/:activityId         — edit an activity
+ *   DELETE /api/profiles/:id/tracker/:date/activities/:activityId         — remove an activity + its screenshots
+ *   POST   /api/profiles/:id/tracker/:date/activities/:activityId/screenshots — multipart/form-data, field: screenshots (multiple)
  *   DELETE /api/profiles/:id/tracker/:date/screenshots/:shotId
  *
  * Screenshots feed the OpenAI vision analyzer in routes/ai.js — this
  * router only handles storage/CRUD, not analysis.
+ *
+ * Legacy data: before tracker_activities existed, a day held one
+ * strava_url/notes pair directly on daily_trackers, with screenshots
+ * attached to the day rather than an activity. loadTracker() synthesizes
+ * that old data as a pseudo-activity (id: 'legacy') so it keeps displaying
+ * — nothing was migrated or dropped. Editing or deleting that pseudo-
+ * activity "promotes" it into a real tracker_activities row on first touch
+ * (see the :activityId === 'legacy' branches below), after which it behaves
+ * like any other activity and the old daily_trackers columns are cleared.
  */
 
 const express = require('express');
@@ -51,17 +63,57 @@ async function assertOwnsProfile(profileId, userId) {
   return rows.length > 0;
 }
 
-async function loadTracker(profileId, date) {
+async function findOwnedTracker(profileId, date) {
   const rows = await query('SELECT * FROM daily_trackers WHERE profile_id = ? AND date = ?', [profileId, date]);
-  if (!rows[0]) return null;
-  const shots = await query(
-    'SELECT id, file_path, uploaded_at FROM tracker_screenshots WHERE tracker_id = ? ORDER BY uploaded_at ASC',
-    [rows[0].id]
-  );
-  return {
-    id: rows[0].id, date: rows[0].date, stravaUrl: rows[0].strava_url, notes: rows[0].notes,
-    screenshots: shots.map(s => ({ id: s.id, url: s.file_path, uploadedAt: s.uploaded_at }))
-  };
+  return rows[0] || null;
+}
+
+async function ensureTracker(profileId, date) {
+  const existing = await findOwnedTracker(profileId, date);
+  if (existing) return existing.id;
+  const id = crypto.randomUUID();
+  await query('INSERT INTO daily_trackers (id, profile_id, date) VALUES (?, ?, ?)', [id, profileId, date]);
+  return id;
+}
+
+async function loadTracker(profileId, date) {
+  const tracker = await findOwnedTracker(profileId, date);
+  if (!tracker) return { id: null, date, activities: [] };
+
+  const [activityRows, shotRows] = await Promise.all([
+    query('SELECT * FROM tracker_activities WHERE tracker_id = ? ORDER BY sort_order ASC, created_at ASC', [tracker.id]),
+    query('SELECT id, activity_id, file_path, uploaded_at FROM tracker_screenshots WHERE tracker_id = ? ORDER BY uploaded_at ASC', [tracker.id])
+  ]);
+
+  const shotsFor = activityId => shotRows
+    .filter(s => s.activity_id === activityId)
+    .map(s => ({ id: s.id, url: s.file_path, uploadedAt: s.uploaded_at }));
+
+  const activities = activityRows.map(a => ({
+    id: a.id, name: a.name, stravaUrl: a.strava_url, notes: a.notes, sortOrder: a.sort_order,
+    screenshots: shotsFor(a.id)
+  }));
+
+  // Legacy pseudo-activity: only synthesized when no real tracker_activities
+  // row exists yet AND there's actually legacy data to show (old
+  // strava_url/notes, or orphan screenshots with activity_id NULL).
+  const orphanShots = shotsFor(null);
+  if (!activityRows.length && (tracker.strava_url || tracker.notes || orphanShots.length)) {
+    activities.unshift({
+      id: 'legacy', name: null, stravaUrl: tracker.strava_url, notes: tracker.notes, sortOrder: -1,
+      screenshots: orphanShots
+    });
+  }
+
+  return { id: tracker.id, date: tracker.date, activities };
+}
+
+async function findOwnedActivity(profileId, date, activityId) {
+  const tracker = await findOwnedTracker(profileId, date);
+  if (!tracker) return null;
+  if (activityId === 'legacy') return { tracker, activity: null }; // promoted on first write, see below
+  const rows = await query('SELECT * FROM tracker_activities WHERE id = ? AND tracker_id = ?', [activityId, tracker.id]);
+  return rows[0] ? { tracker, activity: rows[0] } : null;
 }
 
 router.get('/:date', async (req, res) => {
@@ -70,30 +122,86 @@ router.get('/:date', async (req, res) => {
   res.json(await loadTracker(req.params.id, req.params.date));
 });
 
-router.put('/:date', async (req, res) => {
+router.post('/:date/activities', async (req, res) => {
   if (!(await assertOwnsProfile(req.params.id, req.session.userId)))
     return res.status(404).json({ error: 'Profile not found' });
 
-  const { stravaUrl, notes } = req.body || {};
-  const existing = await query('SELECT id FROM daily_trackers WHERE profile_id = ? AND date = ?', [req.params.id, req.params.date]);
+  const { name, stravaUrl, notes } = req.body || {};
+  const trackerId = await ensureTracker(req.params.id, req.params.date);
+  const maxOrder = await query('SELECT COALESCE(MAX(sort_order), -1) AS m FROM tracker_activities WHERE tracker_id = ?', [trackerId]);
 
-  if (existing[0]) {
-    await query('UPDATE daily_trackers SET strava_url = ?, notes = ? WHERE id = ?', [stravaUrl || null, notes || null, existing[0].id]);
+  await query(
+    'INSERT INTO tracker_activities (id, tracker_id, name, strava_url, notes, sort_order) VALUES (?, ?, ?, ?, ?, ?)',
+    [crypto.randomUUID(), trackerId, name || null, stravaUrl || null, notes || null, maxOrder[0].m + 1]
+  );
+  res.status(201).json(await loadTracker(req.params.id, req.params.date));
+});
+
+router.put('/:date/activities/:activityId', async (req, res) => {
+  if (!(await assertOwnsProfile(req.params.id, req.session.userId)))
+    return res.status(404).json({ error: 'Profile not found' });
+
+  const found = await findOwnedActivity(req.params.id, req.params.date, req.params.activityId);
+  if (!found) return res.status(404).json({ error: 'Activity not found' });
+
+  const { name, stravaUrl, notes } = req.body || {};
+
+  if (req.params.activityId === 'legacy') {
+    // First edit of the synthesized legacy pseudo-activity: promote it into
+    // a real row, reassign any orphan screenshots to it, and clear the old
+    // day-level columns so it isn't synthesized again alongside this one.
+    const newId = crypto.randomUUID();
+    await query(
+      'INSERT INTO tracker_activities (id, tracker_id, name, strava_url, notes, sort_order) VALUES (?, ?, ?, ?, ?, 0)',
+      [newId, found.tracker.id, name || null, stravaUrl || null, notes || null]
+    );
+    await query('UPDATE tracker_screenshots SET activity_id = ? WHERE tracker_id = ? AND activity_id IS NULL', [newId, found.tracker.id]);
+    await query('UPDATE daily_trackers SET strava_url = NULL, notes = NULL WHERE id = ?', [found.tracker.id]);
   } else {
     await query(
-      'INSERT INTO daily_trackers (id, profile_id, date, strava_url, notes) VALUES (?, ?, ?, ?, ?)',
-      [crypto.randomUUID(), req.params.id, req.params.date, stravaUrl || null, notes || null]
+      'UPDATE tracker_activities SET name = ?, strava_url = ?, notes = ? WHERE id = ?',
+      [name || null, stravaUrl || null, notes || null, found.activity.id]
     );
   }
   res.json(await loadTracker(req.params.id, req.params.date));
 });
 
-router.post('/:date/screenshots', upload.array('screenshots', 10), async (req, res) => {
-  if (!(await assertOwnsProfile(req.params.id, req.session.userId))) {
-    (req.files || []).forEach(f => { try { fs.unlinkSync(f.path); } catch { /* best-effort cleanup */ } });
+router.delete('/:date/activities/:activityId', async (req, res) => {
+  if (!(await assertOwnsProfile(req.params.id, req.session.userId)))
     return res.status(404).json({ error: 'Profile not found' });
+
+  const found = await findOwnedActivity(req.params.id, req.params.date, req.params.activityId);
+  if (!found) return res.status(404).json({ error: 'Activity not found' });
+
+  const activityId = req.params.activityId === 'legacy' ? null : found.activity.id;
+  const shots = await query(
+    activityId === null
+      ? 'SELECT id, file_path FROM tracker_screenshots WHERE tracker_id = ? AND activity_id IS NULL'
+      : 'SELECT id, file_path FROM tracker_screenshots WHERE activity_id = ?',
+    activityId === null ? [found.tracker.id] : [activityId]
+  );
+  shots.forEach(s => {
+    const filePath = path.join(__dirname, '..', '..', '..', s.file_path);
+    if (fs.existsSync(filePath)) { try { fs.unlinkSync(filePath); } catch { /* best-effort cleanup */ } }
+  });
+  if (shots.length) await query(`DELETE FROM tracker_screenshots WHERE id IN (${shots.map(() => '?').join(',')})`, shots.map(s => s.id));
+
+  if (req.params.activityId === 'legacy') {
+    await query('UPDATE daily_trackers SET strava_url = NULL, notes = NULL WHERE id = ?', [found.tracker.id]);
+  } else {
+    await query('DELETE FROM tracker_activities WHERE id = ?', [found.activity.id]);
   }
+  res.json(await loadTracker(req.params.id, req.params.date));
+});
+
+router.post('/:date/activities/:activityId/screenshots', upload.array('screenshots', 10), async (req, res) => {
+  const cleanup = () => (req.files || []).forEach(f => { try { fs.unlinkSync(f.path); } catch { /* best-effort cleanup */ } });
+
+  if (!(await assertOwnsProfile(req.params.id, req.session.userId))) { cleanup(); return res.status(404).json({ error: 'Profile not found' }); }
   if (!req.files || !req.files.length) return res.status(400).json({ error: 'No files uploaded' });
+
+  const found = await findOwnedActivity(req.params.id, req.params.date, req.params.activityId);
+  if (!found) { cleanup(); return res.status(404).json({ error: 'Activity not found' }); }
 
   // Quota check happens after multer has already written the files to disk
   // (we don't know the file count until the multipart body is parsed) — if
@@ -101,27 +209,22 @@ router.post('/:date/screenshots', upload.array('screenshots', 10), async (req, r
   // of silently keeping orphaned uploads.
   const quota = await getQuotaStatus(req.session.userId, 'screenshot_upload', req.files.length);
   if (!quota.allowed) {
-    req.files.forEach(f => { try { fs.unlinkSync(f.path); } catch { /* best-effort cleanup */ } });
+    cleanup();
     return res.status(429).json({
       error: `Daily screenshot upload limit reached (${quota.used}/${quota.limit} in the last ${quota.windowHours}h). Try again later.`,
       ...quota
     });
   }
 
-  let trackerRows = await query('SELECT id FROM daily_trackers WHERE profile_id = ? AND date = ?', [req.params.id, req.params.date]);
-  let trackerId;
-  if (trackerRows[0]) {
-    trackerId = trackerRows[0].id;
-  } else {
-    trackerId = crypto.randomUUID();
-    await query('INSERT INTO daily_trackers (id, profile_id, date) VALUES (?, ?, ?)', [trackerId, req.params.id, req.params.date]);
-  }
-
+  // Uploading to the legacy pseudo-activity attaches as an orphan
+  // (activity_id NULL) — consistent with how existing legacy screenshots
+  // are already stored — rather than silently promoting it here too.
+  const activityId = req.params.activityId === 'legacy' ? null : found.activity.id;
   for (const file of req.files) {
     const publicPath = `/uploads/tracker/${req.params.id}/${req.params.date}/${file.filename}`;
     await query(
-      'INSERT INTO tracker_screenshots (id, tracker_id, file_path) VALUES (?, ?, ?)',
-      [crypto.randomUUID(), trackerId, publicPath]
+      'INSERT INTO tracker_screenshots (id, tracker_id, activity_id, file_path) VALUES (?, ?, ?, ?)',
+      [crypto.randomUUID(), found.tracker.id, activityId, publicPath]
     );
   }
   await recordUsage(req.session.userId, 'screenshot_upload', req.files.length);
