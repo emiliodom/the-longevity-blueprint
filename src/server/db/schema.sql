@@ -107,6 +107,12 @@ CREATE TABLE IF NOT EXISTS training_blocks (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Daily Exercise Tracker (Strava link + screenshots)
+-- daily_trackers is now just the per-(profile,date) container; strava_url/
+-- notes stay here (read-only) purely so any pre-existing single-activity
+-- data written before tracker_activities existed still displays — see
+-- routes/tracker.js's loadTracker() legacy-fallback comment. Every new
+-- write goes to tracker_activities instead, which is what actually
+-- supports multiple activities per day.
 CREATE TABLE IF NOT EXISTS daily_trackers (
   id          VARCHAR(36)  PRIMARY KEY,
   profile_id  VARCHAR(36)  NOT NULL,
@@ -119,6 +125,20 @@ CREATE TABLE IF NOT EXISTS daily_trackers (
   INDEX idx_trackers_profile (profile_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- One row per activity logged for a day (running, swimming, lifting, etc. —
+-- the same day can now hold several). sort_order controls display order.
+CREATE TABLE IF NOT EXISTS tracker_activities (
+  id          VARCHAR(36)  PRIMARY KEY,
+  tracker_id  VARCHAR(36)  NOT NULL,
+  name        VARCHAR(255) NULL,
+  strava_url  VARCHAR(500) NULL,
+  notes       TEXT         NULL,
+  sort_order  INT          NOT NULL DEFAULT 0,
+  created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_activities_tracker FOREIGN KEY (tracker_id) REFERENCES daily_trackers(id) ON DELETE CASCADE,
+  INDEX idx_activities_tracker (tracker_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS tracker_screenshots (
   id          VARCHAR(36)  PRIMARY KEY,
   tracker_id  VARCHAR(36)  NOT NULL,
@@ -127,6 +147,14 @@ CREATE TABLE IF NOT EXISTS tracker_screenshots (
   CONSTRAINT fk_screenshots_tracker FOREIGN KEY (tracker_id) REFERENCES daily_trackers(id) ON DELETE CASCADE,
   INDEX idx_screenshots_tracker (tracker_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- activity_id associates a screenshot with one specific activity instead of
+-- just "the day" — nullable and app-level only (no FK constraint), same
+-- non-enforced-reference convention as training_blocks.details JSON
+-- elsewhere in this schema. Pre-existing screenshots (uploaded before
+-- activities existed) keep activity_id NULL and surface under the
+-- synthesized legacy activity — see loadTracker()'s comment in tracker.js.
+ALTER TABLE tracker_screenshots ADD COLUMN activity_id VARCHAR(36) NULL;
 
 -- Calorie & Food Planner — food items themselves are static content
 -- (src/server/lib/foods.js, referenced here only by string id), not a table.
