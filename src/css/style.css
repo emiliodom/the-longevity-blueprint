@@ -77,6 +77,16 @@ body {
 .goog-logo-link                  { display: none !important; }
 #goog-gt-tt,
 body > .skiptranslate            { display: none !important; }
+/* Google's widget also injects a separate floating circular icon
+   straight into <body> (a fixed-position overlay, independent of
+   #google_translate_element's own position in the sidebar) — on this
+   layout it sits directly over the mobile hamburger/sidebar-collapse
+   toggle and blocks taps on it. The class name is Google's own
+   auto-generated build hash, not semantic, so it may need updating if
+   a future Translate widget version changes it — if the sidebar toggle
+   becomes unclickable again after a browser/widget update, re-inspect
+   the stray floating element and add its class here. */
+.VIpgJd-ZVi9od-aZ2wEe-wOHMyf      { display: none !important; }
 .goog-te-gadget                  { font-size: 0 !important; }
 .goog-te-gadget .goog-te-gadget-simple { font-size: .75rem !important; }
 
