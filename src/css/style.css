@@ -163,6 +163,42 @@ html.light-mode .hero::after {
   border-color: rgba(56,189,248,.2);
 }
 
+/* Nav groups: full grouped list on desktop, a tile grid + modal below
+   1024px — same rationale and pattern as the Week Builder palette's
+   category tiles (see that section of ARCHITECTURE.md). Plain @media
+   queries, not Tailwind classes, for the same load-order-safety reason. */
+.nav-group-grid { display: none; }
+@media (max-width: 1023px) {
+  .nav-groups-list { display: none; }
+  .nav-group-grid {
+    display:               grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap:                   .5rem;
+  }
+}
+.nav-group-tile {
+  display:        flex;
+  flex-direction: column;
+  align-items:    center;
+  justify-content:center;
+  gap:            .3rem;
+  min-height:     4rem;
+  padding:        .75rem .5rem;
+  border-radius:  .75rem;
+  border:         1px solid var(--c-border);
+  background:     var(--c-surface2);
+  color:          var(--c-muted);
+  font-size:      .78rem;
+  font-weight:    600;
+  text-align:     center;
+}
+.nav-group-tile:hover { background: var(--c-surface3); color: var(--c-text); }
+.nav-group-tile-count {
+  font-size:   .68rem;
+  font-weight: 400;
+  color:       var(--c-subtle);
+}
+
 /* ── Content card ─────────────────────────────────────────────────────────── */
 .module-card {
   background:    var(--c-surface2);

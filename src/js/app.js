@@ -53,6 +53,11 @@ const app = createApp({
       // is mobile's off-canvas drawer visibility.
       sidebarCollapsed: localStorage.getItem('bp_sidebar_collapsed') === 'true',
       navGroups:     NAV_GROUPS,
+      // Mobile nav: a grid of group tiles replaces the tall grouped list
+      // below 1024px (same pattern as the Week Builder palette's category
+      // tiles) — tapping one opens a modal listing that group's pages
+      // instead of the drawer scrolling through every group at once.
+      activeNavGroupModal: null,
 
       // ── Dashboard ──────────────────────────────────────────────────────
       dashboard: {
