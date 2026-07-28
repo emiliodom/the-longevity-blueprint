@@ -606,6 +606,16 @@ html.light-mode code.text-sky-400 {
   align-items: center;
   gap:         .4rem .5rem;
 }
+/* Desktop-only browsing surface — below 1024px the category tile grid +
+   modal (below) replaces it entirely, since even a collapsed-by-category
+   accordion still grows the card taller with every category opened, which
+   was the core mobile usability problem. This only ever hides it visually;
+   the ref="palette" node driving SortableJS stays mounted regardless (see
+   the v-show comment on it in weekBuilder.js) — plain `display:none`
+   behaves identically to v-show for that purpose. */
+@media (max-width: 1023px) {
+  .palette-row { display: none; }
+}
 /* Now a <button>, not a plain <div> — clickable to expand/collapse that
    category's items (accordion, collapsed by default). Still excluded from
    Sortable via the same class-based filter as before. */
@@ -626,6 +636,55 @@ html.light-mode code.text-sky-400 {
 .palette-category-count {
   font-size: .68rem;
   color:     var(--c-subtle);
+}
+
+/* Mobile-only category chooser (see the .palette-row media query above) —
+   a fixed 2-column grid of square-ish tiles, one per category, instead of
+   a list that grows when opened. Each tile just opens the category modal
+   (weekBuilder.js's activeCategoryModal); no Sortable/drag involvement. */
+.palette-category-grid {
+  display:               grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap:                   .5rem;
+}
+@media (min-width: 1024px) {
+  .palette-category-grid { display: none; }
+}
+.palette-category-tile {
+  display:        flex;
+  flex-direction: column;
+  align-items:    center;
+  justify-content:center;
+  gap:            .3rem;
+  min-height:     4.5rem;
+  padding:        .75rem .5rem;
+  border-radius:  .6rem;
+  border:         1px solid var(--c-border);
+  background:     var(--c-surface);
+  color:          var(--c-text2);
+  font-size:      .78rem;
+  font-weight:    600;
+  text-align:     center;
+  cursor:         pointer;
+}
+/* Same --block-accent pattern as .palette-item/.block-card. */
+.palette-category-tile { border-left: 3px solid var(--block-accent, var(--c-border)); }
+.palette-category-tile:hover { border-color: var(--c-accent); }
+.palette-category-tile-count {
+  font-size:   .68rem;
+  font-weight: 400;
+  color:       var(--c-subtle);
+}
+
+/* .palette-item's flex: 0 1 220px is a WIDTH basis for its normal home
+   (.palette-row, a wrapping flex ROW) — reused verbatim inside the category
+   modal's vertical list (.detail-modal-list, a flex COLUMN), that same
+   220px instead became a HEIGHT basis, leaving a large empty gap under
+   every item's Place button. Override to a plain full-width row here. */
+.detail-modal-list .palette-item {
+  flex:      none;
+  width:     100%;
+  min-width: 0;
 }
 
 /* Two rows, not one: the top row (icon/label/duration/info) stays a

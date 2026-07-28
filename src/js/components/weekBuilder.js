@@ -80,10 +80,16 @@ app.component('WeekBuilder', {
       showPalette: false,
       // Category accordion state for the palette — collapsed by default so
       // browsing 26 items across 8 categories doesn't dump one long
-      // scrolling list. This was the core of the "unusable on mobile"
-      // complaint: reaching a day column required scrolling past the
-      // *entire* flat palette first (single-column on narrow screens).
+      // scrolling list. Desktop-only now (≥1024px, see .palette-row's media
+      // query in style.css) — this is what a mouse-and-drag user sees.
       expandedCategories: {},
+      // Mobile's palette browsing path: a grid of category tiles (below
+      // 1024px, see .palette-category-grid's media query) replaces the
+      // accordion entirely, since even collapsed-by-category it still grew
+      // the card taller with every category opened. Tapping a tile opens a
+      // modal (activeCategoryModal = that category) listing its templates —
+      // the card's own height never changes regardless of what's browsed.
+      activeCategoryModal: null,
       // "📍 Place" flow: pick a template, then a day, then a position —
       // entirely from a modal, without ever scrolling down to a day column.
       // The primary mobile fix; drag-and-drop and tap-then-tap-day (below)
@@ -625,6 +631,20 @@ app.component('WeekBuilder', {
           </span>
         </button>
         <p v-if="showPalette" class="text-xs text-slate-500 mt-1 mb-3">Tap 📍 Place for the fastest path on mobile — pick a day and position from a popup, no scrolling needed. Drag onto a day, or tap a block then tap a day, both still work too.</p>
+
+        <!-- Mobile: a grid of category tiles, not an inline-growing accordion —
+             tapping one opens a modal (below) so this card's own height never
+             changes no matter how many templates a category has. Hidden at
+             desktop widths (see the media query in style.css), where the
+             accordion below is the browsing surface instead. -->
+        <div v-show="showPalette" class="palette-category-grid">
+          <button v-for="(items, cat) in templatesByCategory" :key="cat"
+                   @click="activeCategoryModal = cat" :style="cardStyle(cat)" class="palette-category-tile">
+            <span>{{ categoryLabel(cat) }}</span>
+            <span class="palette-category-tile-count">{{ items.length }}</span>
+          </button>
+        </div>
+
         <div ref="palette" class="palette-row" v-show="showPalette">
           <template v-for="(items, cat) in templatesByCategory" :key="cat">
             <button @click.stop="toggleCategory(cat)" class="palette-category-header basis-full">
@@ -643,6 +663,29 @@ app.component('WeekBuilder', {
               <button @click.stop="openPlacement(t)" class="palette-item-place-btn">📍 Place</button>
             </div>
           </template>
+        </div>
+      </div>
+
+      <!-- Mobile category modal: the drill-down for a tapped tile above —
+           lists that category's templates without growing the palette card
+           itself. Placing closes this and opens the day/position modal. -->
+      <div v-if="activeCategoryModal" class="detail-modal-backdrop" @click.self="activeCategoryModal = null">
+        <div class="detail-modal module-card">
+          <div class="flex items-start justify-between gap-3 mb-3">
+            <h3 class="text-white font-semibold text-sm">{{ categoryLabel(activeCategoryModal) }}</h3>
+            <button @click="activeCategoryModal = null" class="text-slate-500 hover:text-red-400 text-sm flex-shrink-0">✕</button>
+          </div>
+          <div class="detail-modal-list">
+            <div v-for="t in templatesByCategory[activeCategoryModal]" :key="t.id" :style="cardStyle(t.category)" class="palette-item">
+              <div class="palette-item-row">
+                <span>{{ t.icon }}</span>
+                <span class="flex-1 min-w-0 truncate">{{ t.label }}</span>
+                <span class="text-xs text-slate-500">{{ t.defaultDurationMin }}m</span>
+                <button @click="openTemplateDetail(t)" class="palette-item-info" title="More info">ⓘ</button>
+              </div>
+              <button @click="openPlacement(t); activeCategoryModal = null" class="palette-item-place-btn">📍 Place</button>
+            </div>
+          </div>
         </div>
       </div>
 
