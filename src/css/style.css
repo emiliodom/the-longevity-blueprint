@@ -596,28 +596,57 @@ html.light-mode code.text-sky-400 {
   align-items: center;
   gap:         .4rem .5rem;
 }
-.palette-category-header { margin-top: .5rem; }
+/* Now a <button>, not a plain <div> — clickable to expand/collapse that
+   category's items (accordion, collapsed by default). Still excluded from
+   Sortable via the same class-based filter as before. */
+.palette-category-header {
+  margin-top:     .5rem;
+  width:          100%;
+  display:        flex;
+  align-items:    center;
+  justify-content:space-between;
+  text-align:     left;
+  font-size:      .75rem;
+  font-weight:    500;
+  color:          var(--c-subtle);
+  cursor:         pointer;
+}
+.palette-category-header:hover { color: var(--c-accent); }
 .palette-row > .palette-category-header:first-child { margin-top: 0; }
+.palette-category-count {
+  font-size: .68rem;
+  color:     var(--c-subtle);
+}
 
+/* Two rows, not one: the top row (icon/label/duration/info) stays a
+   click-select target for the drag/tap-then-tap-day flow; the bottom row
+   is a full-width "📍 Place" button — the fastest path on mobile, since it
+   opens the day+position picker right where you're browsing instead of
+   requiring a scroll down to a day column. */
 .palette-item {
-  display:       flex;
-  align-items:   center;
-  gap:           .4rem;
-  padding:       .5rem .6rem;
-  flex:          0 1 220px;
-  min-width:     180px;
-  border-radius: .5rem;
-  border:        1px solid var(--c-border);
-  background:    var(--c-surface);
-  font-size:     .78rem;
-  cursor:        grab;
-  color:         var(--c-text2);
-  transition:    border-color .15s;
+  display:        flex;
+  flex-direction: column;
+  gap:            .35rem;
+  padding:        .5rem .6rem;
+  flex:           0 1 220px;
+  min-width:      180px;
+  border-radius:  .5rem;
+  border:         1px solid var(--c-border);
+  background:     var(--c-surface);
+  font-size:      .78rem;
+  cursor:         grab;
+  color:          var(--c-text2);
+  transition:     border-color .15s;
   /* SortableJS's pointer-based dragging (forceFallback, see
      blockStyleConfig.js) can otherwise trigger the browser's native text
      selection on a press-and-drag gesture, which visually looks like the
      wrong element got "selected" instead of dragged. */
   user-select:   none;
+}
+.palette-item-row {
+  display:     flex;
+  align-items: center;
+  gap:         .4rem;
 }
 .palette-item:hover        { border-color: var(--c-accent); }
 .palette-item-selected {
@@ -643,6 +672,83 @@ html.light-mode code.text-sky-400 {
   color:      var(--c-accent);
   background: rgba(56,189,248,.12);
 }
+
+.palette-item-place-btn {
+  width:         100%;
+  text-align:    center;
+  font-size:     .68rem;
+  font-weight:   600;
+  color:         var(--c-accent);
+  background:    rgba(56,189,248,.1);
+  border:        1px dashed var(--c-accent);
+  border-radius: .4rem;
+  padding:       .3rem;
+  cursor:        pointer;
+}
+.palette-item-place-btn:hover { background: rgba(56,189,248,.2); }
+
+/* ── Place modal: day + position picker (weekBuilder.js's openPlacement()) ── */
+.placement-day-grid {
+  display:               grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap:                   .4rem;
+}
+.placement-day-btn {
+  display:        flex;
+  flex-direction: column;
+  align-items:    center;
+  gap:            .1rem;
+  padding:        .5rem .3rem;
+  border-radius:  .5rem;
+  border:         1px solid var(--c-border);
+  background:     var(--c-surface2);
+  color:          var(--c-text2);
+  font-size:      .75rem;
+  font-weight:    600;
+  cursor:         pointer;
+  /* Comfortable thumb target, not just a small tap zone — this is the
+     mobile-first path, so every control in this modal is sized for touch. */
+  min-height:     2.75rem;
+}
+.placement-day-btn:hover { border-color: var(--c-accent); }
+.placement-day-btn-active {
+  border-color: var(--c-accent);
+  box-shadow:   0 0 0 2px rgba(56,189,248,.35);
+  background:   var(--c-surface3);
+  color:        var(--c-text);
+}
+.placement-day-date {
+  font-size:   .62rem;
+  font-weight: 400;
+  color:       var(--c-subtle);
+}
+
+.placement-slot-list {
+  display:        flex;
+  flex-direction: column;
+  gap:            .3rem;
+}
+.placement-slot-existing {
+  padding:       .5rem .6rem;
+  border-radius: .4rem;
+  background:    var(--c-surface2);
+  border:        1px solid var(--c-border);
+  font-size:     .78rem;
+  color:         var(--c-text2);
+}
+.placement-slot-insert-btn {
+  width:         100%;
+  text-align:    center;
+  font-size:     .68rem;
+  font-weight:   600;
+  color:         var(--c-accent);
+  background:    rgba(56,189,248,.08);
+  border:        1px dashed var(--c-accent);
+  border-radius: .4rem;
+  padding:       .4rem;
+  cursor:        pointer;
+}
+.placement-slot-insert-btn:hover { background: rgba(56,189,248,.2); }
 
 /* Reusable pattern: a horizontally-scrolling row of minimum-width cards,
    for any multi-card row that would otherwise get squeezed into truncating

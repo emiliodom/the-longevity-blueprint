@@ -378,7 +378,7 @@ const DB = [
     id: 25, icon: '🗓️', title: 'Week Builder',
     isTrainingBuilder: true, hero: '',
     content: [
-      { type: 'paragraph', text: 'Drag activity blocks from the palette onto any day to build your week. Link a goal below to auto-build a full week around its target date, then export as PDF, CSV, or an .ics calendar file.' }
+      { type: 'paragraph', text: 'Build your week from the palette below — tap 📍 Place for the fastest path on mobile (pick a day and position from a popup), or drag a block onto a day on desktop. Link a goal below to auto-build a full week around its target date, then export as PDF, CSV, or an .ics calendar file.' }
     ]
   },
   {

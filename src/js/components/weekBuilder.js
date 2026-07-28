@@ -78,6 +78,18 @@ app.component('WeekBuilder', {
       // Collapsed by default — the palette is ~24 items across 8 categories,
       // too much vertical space to show unconditionally on every visit.
       showPalette: false,
+      // Category accordion state for the palette — collapsed by default so
+      // browsing 26 items across 8 categories doesn't dump one long
+      // scrolling list. This was the core of the "unusable on mobile"
+      // complaint: reaching a day column required scrolling past the
+      // *entire* flat palette first (single-column on narrow screens).
+      expandedCategories: {},
+      // "📍 Place" flow: pick a template, then a day, then a position —
+      // entirely from a modal, without ever scrolling down to a day column.
+      // The primary mobile fix; drag-and-drop and tap-then-tap-day (below)
+      // still work unchanged for anyone who prefers them.
+      placementItem: null,
+      placementDay:  null,
       // Detail modal: normalized to { title, icon, durationMin, category, mode }
       // regardless of whether it was opened from a palette template or a
       // placed board block — see openTemplateDetail()/openBlockDetail().
@@ -345,6 +357,51 @@ app.component('WeekBuilder', {
       await this.loadWeek();
     },
 
+    toggleCategory(cat) {
+      this.expandedCategories[cat] = !this.expandedCategories[cat];
+    },
+
+    // ── "📍 Place" — day + position picker modal ────────────────────────
+    // The mobile-first alternative to drag/tap-then-tap-day: pick a
+    // template's Place button right where you're browsing, then a day and
+    // a position, all from one small modal — no scrolling to a day column.
+    openPlacement(t) {
+      this.placementItem = t;
+      this.placementDay  = null;
+    },
+    closePlacement() {
+      this.placementItem = null;
+      this.placementDay  = null;
+    },
+    // insertAtIndex is a position among that day's *current* blocks (0 =
+    // first). The new block is created with a sortOrder guaranteed higher
+    // than every existing one on that day (regardless of what those
+    // existing sortOrders actually are — old tap/drag-placed blocks can
+    // all be 0), so it's unambiguous to find afterward; it's then spliced
+    // into the intended slot and the whole day is renumbered sequentially,
+    // the same pattern handleReorder() already uses for drag reordering.
+    async placeWithOrder(dayIndex, insertAtIndex) {
+      const template = this.placementItem;
+      if (!template) return;
+      const before = this.dayBlocks(dayIndex);
+      const safeSortOrder = before.length ? Math.max(...before.map(b => b.sortOrder)) + 1 : 0;
+      await Storage.addBlock(this.profile.id, this.week.id, {
+        dayOfWeek: dayIndex, blockType: template.category, title: template.label,
+        durationMin: template.defaultDurationMin, details: template.details, sortOrder: safeSortOrder
+      });
+      await this.loadWeek();
+
+      const after = this.dayBlocks(dayIndex);
+      const newBlock = after.reduce((max, b) => (!max || b.sortOrder > max.sortOrder) ? b : max, null);
+      const rest = after.filter(b => b.id !== newBlock.id);
+      rest.splice(insertAtIndex, 0, newBlock);
+      await Promise.all(rest.map((b, i) =>
+        Storage.updateBlock(this.profile.id, this.week.id, b.id, { dayOfWeek: dayIndex, sortOrder: i })
+      ));
+      this.closePlacement();
+      await this.loadWeek();
+    },
+
     // ── Detail modal ─────────────────────────────────────────────────────
     // blockId is only set when opened from an already-placed block — that's
     // what selectExercise() needs to know it has something to replace.
@@ -567,17 +624,23 @@ app.component('WeekBuilder', {
             {{ showPalette ? '▾' : '▸' }} Add a block ({{ blockTemplates.length }})
           </span>
         </button>
-        <p v-if="showPalette" class="text-xs text-slate-500 mt-1 mb-3">Drag a block onto a day, or tap a block then tap a day — works without a mouse.</p>
+        <p v-if="showPalette" class="text-xs text-slate-500 mt-1 mb-3">Tap 📍 Place for the fastest path on mobile — pick a day and position from a popup, no scrolling needed. Drag onto a day, or tap a block then tap a day, both still work too.</p>
         <div ref="palette" class="palette-row" v-show="showPalette">
           <template v-for="(items, cat) in templatesByCategory" :key="cat">
-            <div class="text-xs text-slate-500 font-medium palette-category-header basis-full">{{ categoryLabel(cat) }}</div>
-            <div v-for="t in items" :key="t.id" :data-template-id="t.id"
+            <button @click.stop="toggleCategory(cat)" class="palette-category-header basis-full">
+              <span>{{ expandedCategories[cat] ? '▾' : '▸' }} {{ categoryLabel(cat) }}</span>
+              <span class="palette-category-count">{{ items.length }}</span>
+            </button>
+            <div v-for="t in items" :key="t.id" :data-template-id="t.id" v-show="expandedCategories[cat]"
                  @click="selectTemplate(t)" :style="cardStyle(t.category)"
                  class="palette-item" :class="selectedTemplateId === t.id ? 'palette-item-selected' : ''">
-              <span>{{ t.icon }}</span>
-              <span class="flex-1 min-w-0 truncate">{{ t.label }}</span>
-              <span class="text-xs text-slate-500">{{ t.defaultDurationMin }}m</span>
-              <button @click.stop="openTemplateDetail(t)" class="palette-item-info" title="More info">ⓘ</button>
+              <div class="palette-item-row">
+                <span>{{ t.icon }}</span>
+                <span class="flex-1 min-w-0 truncate">{{ t.label }}</span>
+                <span class="text-xs text-slate-500">{{ t.defaultDurationMin }}m</span>
+                <button @click.stop="openTemplateDetail(t)" class="palette-item-info" title="More info">ⓘ</button>
+              </div>
+              <button @click.stop="openPlacement(t)" class="palette-item-place-btn">📍 Place</button>
             </div>
           </template>
         </div>
@@ -695,6 +758,38 @@ app.component('WeekBuilder', {
           <p v-else class="text-xs text-slate-500">
             This block isn't linked to a specific exercise yet — use Swap to pick one from the catalog and its insights will show up here.
           </p>
+        </div>
+      </div>
+
+      <!-- Place: day + position picker — the mobile-first placement path,
+           reachable from wherever you're browsing the palette without
+           scrolling down to a day column. -->
+      <div v-if="placementItem" class="detail-modal-backdrop" @click.self="closePlacement">
+        <div class="detail-modal module-card">
+          <div class="flex items-start justify-between gap-3 mb-3">
+            <h3 class="text-white font-semibold text-sm">📍 Place: {{ placementItem.icon }} {{ placementItem.label }}</h3>
+            <button @click="closePlacement" class="text-slate-500 hover:text-red-400 text-sm flex-shrink-0">✕</button>
+          </div>
+
+          <p class="text-xs text-slate-500 font-medium uppercase tracking-wider mb-2">Choose a day</p>
+          <div class="placement-day-grid">
+            <button v-for="dayIndex in [0,1,2,3,4,5,6]" :key="dayIndex" @click="placementDay = dayIndex"
+                    class="placement-day-btn" :class="placementDay === dayIndex ? 'placement-day-btn-active' : ''">
+              <span>{{ DAY_LABELS[dayIndex].slice(0, 3) }}</span>
+              <span class="placement-day-date">{{ dayLabel(dayIndex) }}</span>
+            </button>
+          </div>
+
+          <template v-if="placementDay !== null">
+            <p class="text-xs text-slate-500 font-medium uppercase tracking-wider mt-4 mb-2">Choose a position</p>
+            <div class="placement-slot-list">
+              <button @click="placeWithOrder(placementDay, 0)" class="placement-slot-insert-btn">+ Place here</button>
+              <template v-for="(b, i) in dayBlocks(placementDay)" :key="b.id">
+                <div class="placement-slot-existing">{{ blockIcon(b) }} {{ b.title }}</div>
+                <button @click="placeWithOrder(placementDay, i + 1)" class="placement-slot-insert-btn">+ Place here</button>
+              </template>
+            </div>
+          </template>
         </div>
       </div>
     </div>
