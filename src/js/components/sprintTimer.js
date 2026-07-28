@@ -45,12 +45,24 @@ app.component('SprintTimer', {
       workSec: 30,
       restSec: 30,
 
+      // Set only via the "Start Workout" handoff from a Week Builder block
+      // (weekBuilder.js's startWorkout(), same $root field pattern as
+      // pendingAutobuildGoalId) — an array of workoutQueue.js steps, each
+      // carrying its own resolved mode/timer. When set, the manual category/
+      // preset/rounds picker below is skipped entirely in favor of a
+      // ready-to-start summary of exactly what's queued — this is what fixes
+      // the bug where a steady/easy exercise incorrectly ran the interval
+      // rounds UI: the phase engine now branches on each step's own mode,
+      // never on the block's sport category. Null when opened from nav.
+      queue:     null,
+      stepIndex: 0,
+
       warmupEnabled:   true,
       warmupSec:       180,
       cooldownEnabled: true,
       cooldownSec:     180,
 
-      phase:        'idle',   // idle | warmup | work | rest | cooldown | done
+      phase:        'idle',   // idle | warmup | work | rest | steady | cooldown | done
       secondsLeft:  0,
       currentRound: 0,
       running:      false,
@@ -78,26 +90,51 @@ app.component('SprintTimer', {
     presetsByCategory() {
       return this.presets.filter(p => p.category === this.category);
     },
+    // The step queue actually being run: the block handoff's queue verbatim
+    // if one arrived, otherwise a single synthetic interval step built from
+    // the manual category/preset/rounds picker — one phase engine (below)
+    // drives both, so behavior never diverges between the two entry points.
+    currentQueue() {
+      if (this.queue && this.queue.length) return this.queue;
+      return [{ label: this.selectedPreset?.name || 'Workout', mode: 'interval', rounds: this.rounds, workSec: this.workSec, restSec: this.restSec }];
+    },
+    selectedPreset() {
+      return this.presets.find(p => p.id === this.selectedPresetId) || null;
+    },
+    currentQueueStep() {
+      return this.currentQueue[this.stepIndex] || null;
+    },
+    stepPositionLabel() {
+      if (this.currentQueue.length <= 1) return '';
+      return `Step ${this.stepIndex + 1}/${this.currentQueue.length} · ${this.currentQueueStep?.label || ''}`;
+    },
     phaseLabel() {
       return {
         idle: 'Ready', warmup: 'WARM UP', work: 'WORK', rest: 'REST',
-        cooldown: 'COOL DOWN', done: 'DONE'
+        steady: 'GO', cooldown: 'COOL DOWN', done: 'DONE'
       }[this.phase];
     },
     phaseClass() {
       return `timer-phase-${this.phase}`;
     },
-    // Whole-session sidebar: warm up (if enabled) + one card per round +
-    // cool down (if enabled) — real-time "how much is done, how much is
-    // left" across the entire session, not just the current round.
+    // Whole-session sidebar: warm up (if enabled) + one card per queue step
+    // (a round card per rep for interval steps, a single card for steady
+    // steps) + cool down (if enabled) — real-time "how much is done, how
+    // much is left" across the entire session, not just the current round.
     sessionCards() {
       const cards = [];
       if (this.warmupEnabled) {
         cards.push({ label: 'Warm Up', status: this.phase === 'warmup' ? 'current' : (this.phase === 'idle' ? 'upcoming' : 'done') });
       }
-      for (let r = 1; r <= this.rounds; r++) {
-        cards.push({ label: `Round ${r}`, status: this.roundStatus(r) });
-      }
+      this.currentQueue.forEach((step, i) => {
+        if (step.mode === 'interval') {
+          for (let r = 1; r <= step.rounds; r++) {
+            cards.push({ label: this.currentQueue.length > 1 ? `${step.label} · Round ${r}` : `Round ${r}`, status: this.roundStatus(i, r) });
+          }
+        } else {
+          cards.push({ label: step.label, status: i < this.stepIndex ? 'done' : (i === this.stepIndex && this.phase === 'steady' ? 'current' : (i === this.stepIndex ? 'done' : 'upcoming')) });
+        }
+      });
       if (this.cooldownEnabled) {
         cards.push({ label: 'Cool Down', status: this.phase === 'cooldown' ? 'current' : (this.phase === 'done' ? 'done' : 'upcoming') });
       }
@@ -125,11 +162,13 @@ app.component('SprintTimer', {
 
     // "Start Workout" handoff from a Week Builder block — same pattern as
     // goalDashboard.js's pendingAutobuildGoalId -> WeekBuilder handoff, a
-    // field on the shared $root instance. Only pre-selects the category;
-    // there's no attempt to map a specific exercise to a timer preset.
-    if (this.$root.pendingTimerCategory) {
-      this.category = this.$root.pendingTimerCategory;
-      this.$root.pendingTimerCategory = null;
+    // field on the shared $root instance. Carries the block's full step
+    // queue (workoutQueue.js) rather than just a category, so the manual
+    // picker below is skipped and each step's own mode/timer drives the
+    // phase engine directly — see currentQueue above.
+    if (this.$root.pendingTimerQueue) {
+      this.queue = this.$root.pendingTimerQueue;
+      this.$root.pendingTimerQueue = null;
     }
   },
   beforeUnmount() {
@@ -146,12 +185,14 @@ app.component('SprintTimer', {
       return BlockStyleConfig.categoryStyle(cat).fallbackIcon;
     },
 
-    roundStatus(roundNum) {
+    roundStatus(stepIdx, roundNum) {
       if (this.phase === 'warmup' || this.phase === 'idle') return 'upcoming';
+      if (stepIdx < this.stepIndex) return 'done';
+      if (stepIdx > this.stepIndex) return 'upcoming';
       if (roundNum < this.currentRound) return 'done';
       if (roundNum > this.currentRound) return 'upcoming';
-      // roundNum === currentRound: mid-work is "current"; resting after it
-      // (or in cooldown/done once it was the last round) counts as "done" —
+      // roundNum === currentRound on the current step: mid-work is
+      // "current"; resting after it (or past it entirely) counts as "done" —
       // the round's work is what the card is tracking, not its recovery.
       return this.phase === 'work' ? 'current' : 'done';
     },
@@ -251,6 +292,7 @@ app.component('SprintTimer', {
     // secondsLeft from _phaseEndAt instead, so a late tick just catches up
     // to the true remaining time rather than compounding.
     start() {
+      this.stepIndex = 0;
       this.currentRound = 0;
       this.running = true;
       this._requestWakeLock();
@@ -258,8 +300,7 @@ app.component('SprintTimer', {
         this._enterPhase('warmup', this.warmupSec);
         this._speak('Warm up');
       } else {
-        this.currentRound = 1;
-        this._enterPhase('work', this.workSec);
+        this._enterStep(0);
         this._speak('Go');
       }
       this._playTransition();
@@ -282,10 +323,27 @@ app.component('SprintTimer', {
       this.phase = 'idle';
       this.secondsLeft = 0;
       this.currentRound = 0;
+      this.stepIndex = 0;
       this.running = false;
       this._phaseEndAt = null;
       this.motivationMessage = null;
       clearTimeout(this._motivationTimeoutHandle);
+    },
+
+    // Enters the given queue step: an interval step starts its round loop,
+    // a steady step starts its single continuous phase — the branch that
+    // fixes the bug where a steady/easy exercise incorrectly ran the
+    // interval rounds UI, since it keys off this step's own mode.
+    _enterStep(index) {
+      this.stepIndex = index;
+      const step = this.currentQueue[index];
+      if (!step) return this._finish();
+      if (step.mode === 'interval') {
+        this.currentRound = 1;
+        this._enterPhase('work', step.workSec);
+      } else {
+        this._enterPhase('steady', step.durationSec);
+      }
     },
 
     _enterPhase(phase, durationSec) {
@@ -320,32 +378,47 @@ app.component('SprintTimer', {
 
     _transitionPhase() {
       if (this.phase === 'warmup') {
-        this.currentRound = 1;
-        this._enterPhase('work', this.workSec);
+        this._enterStep(0);
         this._playTransition();
         this._speak('Go');
       } else if (this.phase === 'work') {
-        if (this.currentRound >= this.rounds) {
-          if (this.cooldownEnabled) {
-            this._enterPhase('cooldown', this.cooldownSec);
-            this._playTransition();
-            this._speak('Cool down');
-          } else {
-            this._finish();
-          }
+        if (this.currentRound >= this.currentQueueStep.rounds) {
+          this._advanceStep();
           return;
         }
-        this._enterPhase('rest', this.restSec);
+        this._enterPhase('rest', this.currentQueueStep.restSec);
         this._playTransition();
         this._speak('Rest');
       } else if (this.phase === 'rest') {
         this.currentRound++;
-        this._enterPhase('work', this.workSec);
+        this._enterPhase('work', this.currentQueueStep.workSec);
         this._playTransition();
         this._speak('Go');
+      } else if (this.phase === 'steady') {
+        this._advanceStep();
       } else if (this.phase === 'cooldown') {
         this._finish();
       }
+    },
+
+    // Moves to the next queue step, or into cooldown/finish once the queue
+    // is exhausted — the multi-step case (a compound block's warmup jog +
+    // main set + cooldown jog, say) just keeps walking this same queue.
+    _advanceStep() {
+      const next = this.stepIndex + 1;
+      if (next >= this.currentQueue.length) {
+        if (this.cooldownEnabled) {
+          this._enterPhase('cooldown', this.cooldownSec);
+          this._playTransition();
+          this._speak('Cool down');
+        } else {
+          this._finish();
+        }
+        return;
+      }
+      this._enterStep(next);
+      this._playTransition();
+      this._speak('Go');
     },
 
     _finish() {
@@ -367,37 +440,52 @@ app.component('SprintTimer', {
         </button>
 
         <template v-if="showSetup">
-          <div class="flex gap-2">
-            <button v-for="cat in ['run', 'cycling', 'swimming']" :key="cat"
-                    @click="selectCategory(cat)" class="pill-btn"
-                    :class="category === cat ? 'pill-btn-active' : ''">
-              {{ iconFor(cat) }} {{ cat === 'run' ? 'Running' : cat === 'cycling' ? 'Cycling' : 'Swimming' }}
-            </button>
+          <!-- Arrived via a Week Builder block's "▶ Start" — the queue already
+               carries real, per-exercise mode/timer data, so there's nothing
+               to pick manually; just show what's about to run. -->
+          <div v-if="queue && queue.length" class="space-y-2">
+            <div v-for="(step, i) in queue" :key="step.id || i" class="timer-queue-preview-row">
+              <span class="timer-queue-preview-index">{{ i + 1 }}.</span>
+              <span class="flex-1 text-sm text-white">{{ step.label }}</span>
+              <span class="text-xs text-sky-400">
+                {{ step.mode === 'interval' ? (step.rounds + ' × ' + formatTime(step.workSec) + '/' + formatTime(step.restSec)) : formatTime(step.durationSec) }}
+              </span>
+            </div>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            <button v-for="p in presetsByCategory" :key="p.id" @click="selectPreset(p)"
-                    class="timer-preset-card" :class="selectedPresetId === p.id ? 'timer-preset-card-selected' : ''">
-              <div class="font-semibold text-sm text-white">{{ p.name }}</div>
-              <div class="text-xs text-slate-400 mt-0.5">{{ p.description }}</div>
-              <div class="text-xs text-sky-400 mt-1">{{ p.rounds }} × ({{ formatTime(p.workSec) }} work / {{ formatTime(p.restSec) }} rest)</div>
-            </button>
-          </div>
+          <template v-else>
+            <div class="flex gap-2">
+              <button v-for="cat in ['run', 'cycling', 'swimming']" :key="cat"
+                      @click="selectCategory(cat)" class="pill-btn"
+                      :class="category === cat ? 'pill-btn-active' : ''">
+                {{ iconFor(cat) }} {{ cat === 'run' ? 'Running' : cat === 'cycling' ? 'Cycling' : 'Swimming' }}
+              </button>
+            </div>
 
-          <div class="grid grid-cols-3 gap-3">
-            <div>
-              <label class="text-xs text-slate-400 mb-1 block">Rounds</label>
-              <input v-model.number="rounds" type="number" min="1" class="calc-input">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              <button v-for="p in presetsByCategory" :key="p.id" @click="selectPreset(p)"
+                      class="timer-preset-card" :class="selectedPresetId === p.id ? 'timer-preset-card-selected' : ''">
+                <div class="font-semibold text-sm text-white">{{ p.name }}</div>
+                <div class="text-xs text-slate-400 mt-0.5">{{ p.description }}</div>
+                <div class="text-xs text-sky-400 mt-1">{{ p.rounds }} × ({{ formatTime(p.workSec) }} work / {{ formatTime(p.restSec) }} rest)</div>
+              </button>
             </div>
-            <div>
-              <label class="text-xs text-slate-400 mb-1 block">Work (sec)</label>
-              <input v-model.number="workSec" type="number" min="1" class="calc-input">
+
+            <div class="grid grid-cols-3 gap-3">
+              <div>
+                <label class="text-xs text-slate-400 mb-1 block">Rounds</label>
+                <input v-model.number="rounds" type="number" min="1" class="calc-input">
+              </div>
+              <div>
+                <label class="text-xs text-slate-400 mb-1 block">Work (sec)</label>
+                <input v-model.number="workSec" type="number" min="1" class="calc-input">
+              </div>
+              <div>
+                <label class="text-xs text-slate-400 mb-1 block">Rest (sec)</label>
+                <input v-model.number="restSec" type="number" min="0" class="calc-input">
+              </div>
             </div>
-            <div>
-              <label class="text-xs text-slate-400 mb-1 block">Rest (sec)</label>
-              <input v-model.number="restSec" type="number" min="0" class="calc-input">
-            </div>
-          </div>
+          </template>
 
           <div class="grid grid-cols-2 gap-3">
             <div class="flex items-center gap-2">
@@ -424,9 +512,10 @@ app.component('SprintTimer', {
       <div v-else class="timer-layout">
         <div class="timer-big-card" :class="phaseClass">
           <div v-if="motivationMessage" class="timer-motivation-popup">{{ motivationMessage }}</div>
+          <div v-if="stepPositionLabel && phase !== 'warmup' && phase !== 'cooldown'" class="timer-step-position-label">{{ stepPositionLabel }}</div>
           <div class="timer-phase-label">{{ phaseLabel }}</div>
           <div class="timer-display">{{ formatTime(Math.max(secondsLeft, 0)) }}</div>
-          <div v-if="phase === 'work' || phase === 'rest'" class="timer-round-label">Round {{ currentRound }} / {{ rounds }}</div>
+          <div v-if="phase === 'work' || phase === 'rest'" class="timer-round-label">Round {{ currentRound }} / {{ currentQueueStep.rounds }}</div>
 
           <div class="timer-controls">
             <button v-if="phase !== 'done' && running" @click="pause" class="timer-control-btn">⏸ Pause</button>

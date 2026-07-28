@@ -447,13 +447,13 @@ app.component('WeekBuilder', {
     },
 
     // ── Start Workout → Sprint Timer handoff ─────────────────────────────
-    // Only run/cycling/swimming have timer presets (see lib/timerPresets.js)
-    // — other categories still navigate over, just without a category
-    // pre-selected, since there's nothing sport-specific to preselect.
+    // Hands off the block's full step queue (workoutQueue.js), not just its
+    // sport category — this is what fixes the bug where an easy/steady run
+    // (or any steady-mode exercise) incorrectly opened the same rounds-based
+    // interval UI as a real sprint session: the Sprint Timer now branches on
+    // each step's own resolved mode, never on block.blockType alone.
     startWorkout(block) {
-      if (['run', 'cycling', 'swimming'].includes(block.blockType)) {
-        this.$root.pendingTimerCategory = block.blockType;
-      }
+      this.$root.pendingTimerQueue = this.workoutQueueFor(block);
       this.$root.setPage(SPRINT_TIMER_PAGE_ID);
     },
 

@@ -1076,6 +1076,7 @@ html.light-mode code.text-sky-400 {
 .timer-phase-warmup   { background: rgba(96,165,250,.15); }
 .timer-phase-work     { background: rgba(52,211,153,.15); }
 .timer-phase-rest     { background: rgba(251,191,36,.15); }
+.timer-phase-steady   { background: rgba(56,189,248,.15); }
 .timer-phase-cooldown { background: rgba(129,140,248,.15); }
 .timer-phase-done     { background: rgba(56,189,248,.15); }
 
@@ -1088,8 +1089,32 @@ html.light-mode code.text-sky-400 {
 .timer-phase-warmup   .timer-phase-label { color: #60a5fa; }
 .timer-phase-work     .timer-phase-label { color: #34d399; }
 .timer-phase-rest     .timer-phase-label { color: #fbbf24; }
+.timer-phase-steady   .timer-phase-label { color: #38bdf8; }
 .timer-phase-cooldown .timer-phase-label { color: #818cf8; }
 .timer-phase-done     .timer-phase-label { color: #38bdf8; }
+
+.timer-step-position-label {
+  font-size:     .85rem;
+  font-weight:   600;
+  color:         var(--c-subtle);
+  text-transform:uppercase;
+  letter-spacing:.03em;
+}
+
+.timer-queue-preview-row {
+  display:      flex;
+  align-items:  center;
+  gap:          .5rem;
+  padding:      .4rem .5rem;
+  border-radius:.5rem;
+  background:   var(--c-surface2);
+  border:       1px solid var(--c-border);
+}
+.timer-queue-preview-index {
+  color:       var(--c-subtle);
+  font-size:   .75rem;
+  flex-shrink: 0;
+}
 
 .timer-motivation-popup {
   position:       absolute;
