@@ -392,7 +392,7 @@ const DB = [
     id: 27, icon: '📸', title: 'Daily Tracker',
     isTracker: true, hero: '',
     content: [
-      { type: 'paragraph', text: 'Log today\'s Strava link, notes, and screenshots, then run the AI analyzer for a day, week, or month summary — powered by OpenAI, reading both your logged data and any attached screenshots.' }
+      { type: 'paragraph', text: 'Log each activity for the day — name, Strava link, notes, and screenshots, "+ Add activity" for more than one — then run the AI analyzer for a day, week, or month summary — powered by OpenAI, reading both your logged data and any attached screenshots.' }
     ]
   },
   {

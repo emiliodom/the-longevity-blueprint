@@ -80,11 +80,12 @@ src/server/                       — backend, one small file per concern
     └── supplements.js                       — Supplements tracker: templates + per-day taken[] (replace-all PUT)
 
 docs/
-├── ARCHITECTURE.md               — this file
+├── ARCHITECTURE.md               — this file (narrative "why")
+├── features.json                  — machine-readable page/feature index (component/route/lib/data-model per feature) — check this FIRST for "which thing does what" before grepping
 └── DEPLOYMENT.md                  — Hostinger Node.js app setup
 ```
 
-**To find something:** frontend UI → `src/js/components/`. An API call → `src/js/storage.js` (client) → matching `src/server/routes/*.js` (server). A DB column → `src/server/db/schema.sql`. Page content/nav → `src/js/db.js`.
+**To find something:** `docs/features.json` first, for which component/route/lib backs a given page. Then: frontend UI → `src/js/components/`. An API call → `src/js/storage.js` (client) → matching `src/server/routes/*.js` (server). A DB column → `src/server/db/schema.sql`. Page content/nav → `src/js/db.js`.
 
 ---
 
@@ -203,6 +204,14 @@ The Daily Tracker (Strava link + notes + screenshots, keyed on `profile_id + dat
 
 Every week is independently stored (`training_weeks` is unique on `profile_id + week_start_date`) and resolved fresh from whatever date the tracker is currently showing — flipping the Daily Tracker's date always looks up that exact week, the same way paging a calendar would, never a cached/generic "current week."
 
+## Daily Tracker: multiple activities per day
+
+A day can hold several logged activities (added 2026-07-28) — `daily_trackers` is now just the per-`(profile_id, date)` container; each activity (name, Strava link, notes, its own screenshots) is its own `tracker_activities` row, added via `POST .../activities`, edited via `PUT .../activities/:id`, removed via `DELETE .../activities/:id`. `tracker_screenshots` gained a nullable `activity_id` (app-level reference only, no FK constraint — same non-enforced-reference convention `training_blocks.details` JSON already uses elsewhere in this schema) so each activity's screenshots stay separate from another activity's on the same day.
+
+**Legacy data (pre-multi-activity) is synthesized, not migrated** — `daily_trackers.strava_url`/`notes` kept their old columns, read-only. `loadTracker()` (`routes/tracker.js`) checks: if a tracker has zero real `tracker_activities` rows AND has old `strava_url`/`notes`/orphan screenshots (`activity_id IS NULL`), it synthesizes one pseudo-activity with `id: 'legacy'` so that old data keeps displaying exactly as before. Editing or deleting that pseudo-activity "promotes" it: `PUT .../activities/legacy` inserts a real `tracker_activities` row from the submitted fields, reassigns any orphan screenshots to it, and clears the old `daily_trackers` columns so it's never synthesized again; `DELETE .../activities/legacy` just clears those columns and deletes the orphan screenshots. Nothing is dropped or force-migrated on deploy — a day nobody touches keeps showing its old data forever via the synthesis path.
+
+**Frontend**: `dailyTracker.js` renders one card per activity plus a `+ Add activity` button (`addActivity()` — POSTs a blank activity immediately so it has a real id to attach edits/screenshots to). Each card saves independently (`saveActivity()`, its own "💾 Save" button — there's no single day-level save anymore) and has its own "− Remove" button (`removeActivity()`) that requires a native `confirm()` before deleting — the same destructive-action pattern `weekBuilder.js`'s `runAutobuild()` already uses, not a custom modal just for this, since the action (screenshots deleted from disk too) is irreversible.
+
 ## Auto-build (lib/autobuild.js)
 
 Deterministic and rules-based — **not** an AI feature. `GOAL_TYPE_DOMAIN` maps every `goal_type` to one of 6 domains (running, trail, calisthenics, cycling, swimming, boxing) plus a `general` fallback for weight/lift_pr goals or no goal at all — each domain has its own `build*Week()` function producing a week actually built around that sport, not a running week with the label changed (e.g. a calisthenics goal gets a push/pull/leg/skill split, a swim goal gets CSS-based interval sets). The original running-only logic (weeks-remaining → specificity phase, ramping long run) lives on as `buildRunningWeek`. Every domain still gets a daily heel-rehab/mobility stretch block, and — unless running/trail specificity IS the goal — a short daily maintenance Zone 2 run, since the app's core premise is a daily cardio streak regardless of the active goal. Calling auto-build **replaces** the week's current blocks — intentional (a reset), not a merge.
@@ -247,7 +256,9 @@ Expanding a card (see "Compound blocks" above) reveals a fifth, block-level acti
 
 ## AI Analyzer (lib/openai.js, routes/ai.js)
 
-`POST /api/profiles/:id/ai/analyze` with `{ scope: 'day'|'week'|'month', date, regenerate? }`. Computes the period's start/end date, gathers `workout_logs` + `daily_trackers` (+ their screenshot files, base64-encoded, capped at 10 images), `meal_plan_items` (joined against `meal_plans` and filtered by computed date via `DATE_ADD` in SQL, since items only carry a `day_of_week` offset, not an absolute date), and `supplement_intakes` for that window, and sends one chat-completions request to a vision-capable OpenAI model (`OPENAI_MODEL` env var). The prompt covers training, nutrition, and supplement adherence together — see `buildPrompt()` in `lib/openai.js`. Results are cached in `ai_analyses` keyed by `(profile_id, scope, period_start)` — repeat views return the cached row unless `regenerate: true` is passed, so viewing the same period twice never re-spends API credits silently.
+`POST /api/profiles/:id/ai/analyze` with `{ scope: 'day'|'week'|'month', date, regenerate? }`. Computes the period's start/end date, gathers `workout_logs`, `meal_plan_items` (joined against `meal_plans` and filtered by computed date via `DATE_ADD` in SQL, since items only carry a `day_of_week` offset, not an absolute date), and `supplement_intakes` for that window, and sends one chat-completions request to a vision-capable OpenAI model (`OPENAI_MODEL` env var). The prompt covers training, nutrition, and supplement adherence together. Results are cached in `ai_analyses` keyed by `(profile_id, scope, period_start)` — repeat views return the cached row unless `regenerate: true` is passed, so viewing the same period twice never re-spends API credits silently.
+
+**Daily Tracker data feeds it per-activity, not per-day, and never includes the Strava link.** `routes/ai.js` fetches `tracker_activities` for every `daily_trackers` row in the period (mirroring `routes/tracker.js`'s legacy pseudo-activity fallback, so an un-promoted old-style entry still gets analyzed instead of silently disappearing from the analysis too) and builds a nested `trackersByDate: [{ date, activities: [{ name, notes, screenshotPaths }] }]`, passed to `lib/openai.js`'s `analyze()` in place of the old flat `trackers` rows + one shared `screenshotPaths` pool. `buildActivityContent()` there emits one text line per activity (name + notes only — `stravaUrl` is deliberately never read into the prompt, since the model can't fetch it and there's no point spending tokens on a bare URL) immediately followed by that activity's own screenshots as `image_url` content parts, so a screenshot lands next to the activity it actually documents instead of every screenshot for the period arriving as one undifferentiated pile at the end of the message — this is what lets the model scope its reasoning down to one activity at a time within a day.
 
 ## Hero images (lib/pexels.js, routes/images.js)
 
