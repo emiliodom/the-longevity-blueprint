@@ -1,0 +1,116 @@
+{
+  "_purpose": "Quick lookup of what each page/feature does and which files back it — read this before grepping the whole codebase to find 'which thing does what'. Narrative detail and the 'why' behind non-obvious decisions still live in docs/ARCHITECTURE.md; this file is the fast index into it. Keep both in sync when adding, renaming, or removing a page or a major feature.",
+  "generatedAt": "2026-07-28",
+  "stack": "Node/Express + MySQL backend, Vue 3 (CDN, Options API, no build step) frontend — every component file is a plain <script> tag wrapped in an IIFE (see any component's header comment for why).",
+  "navGroups": ["Framework", "Nutrition", "Training", "Health", "Reference", "System", "Training Builder", "Planner", "Account"],
+
+  "contentPages": {
+    "_note": "Pages rendered generically from src/js/db.js's DB[] array (paragraph/list/table content blocks) — no dedicated component or server route beyond the generic page renderer in index.html. Some embed one of calculators.js's 9 biometric calculator widgets inline (check the page's `content` array in db.js for a `calculator` block type if a specific formula/tool is needed).",
+    "pages": [
+      { "id": 1,  "title": "Master Blueprint & Longevity",        "group": "Framework" },
+      { "id": 2,  "title": "Visceral Fat & Biomarkers",           "group": "Framework" },
+      { "id": 3,  "title": "Caloric Engine & Metabolic Math",     "group": "Framework" },
+      { "id": 4,  "title": "Protein Mandate & Macro Engineering", "group": "Framework" },
+      { "id": 5,  "title": "Guatemalan Nutrition Protocol",       "group": "Nutrition" },
+      { "id": 6,  "title": "Sunday Strategic Surplus",            "group": "Nutrition" },
+      { "id": 7,  "title": "Minimalist Supplement Stack",         "group": "Nutrition" },
+      { "id": 8,  "title": "Developer Athlete Advanced Stack",    "group": "Nutrition" },
+      { "id": 9,  "title": "Daily 5k & VO2 Max Engine",           "group": "Training" },
+      { "id": 10, "title": "Structural Armor — Shoe Geometry",    "group": "Training" },
+      { "id": 11, "title": "Sunday Ride — Power & Endurance",     "group": "Training" },
+      { "id": 12, "title": "Barbell Recomposition Protocol",      "group": "Training" },
+      { "id": 13, "title": "Workout A — Upper Body & Core",       "group": "Training", "note": "Also a Week Builder block template (templates.js id workout_a) and an exercises.js catalog entry of the same name — see the 'weekBuilder' feature entry." },
+      { "id": 14, "title": "Workout B — Lower Body & Posterior Chain", "group": "Training", "note": "Also a Week Builder block template (templates.js id workout_b)." },
+      { "id": 15, "title": "Pull-Up Benchmark",                   "group": "Training" },
+      { "id": 16, "title": "Ankle & Heel Rehabilitation",         "group": "Health", "note": "Source of the 'Heel Rehab (Rathleff Protocol)' block template/exercise placed daily by autobuild.js." },
+      { "id": 17, "title": "Blood Markers & Biological Age",      "group": "Health" },
+      { "id": 18, "title": "Recovery & Nervous System Regulation","group": "Health" },
+      { "id": 19, "title": "Mindset & Discipline Architecture",   "group": "Health" },
+      { "id": 22, "title": "Belly Fat Measurement Guide",         "group": "Health" },
+      { "id": 23, "title": "Science Cheatsheet",                  "group": "Reference" },
+      { "id": 24, "title": "Environment & Caloric Factors",       "group": "Reference" }
+    ]
+  },
+
+  "features": [
+    {
+      "id": 20, "title": "Daily Mission Control", "group": "System", "flag": "isDashboard",
+      "component": "src/js/components/... (dashboard rendered in index.html's main v-else-if chain, see app.js's `dashboard` data)",
+      "route": "src/server/routes/dashboard.js",
+      "dataModel": "dashboards — one JSON blob per profile (GET/PUT only)",
+      "description": "Daily checklist-style overview (calories/protein/water/sleep targets vs actuals). Single JSON blob, not normalized rows."
+    },
+    {
+      "id": 21, "title": "Exercise Journal & Analytics", "group": "System", "flag": "isJournal",
+      "route": "src/server/routes/log.js",
+      "dataModel": "workout_logs (date, type, duration, distance, weight, reps, notes)",
+      "description": "Manual workout log (run/cycle/lift sessions) — CRUD list, feeds AI Analyzer's 'Workout log entries' section alongside Daily Tracker activities."
+    },
+    {
+      "id": 25, "title": "Week Builder", "group": "Training Builder", "flag": "isTrainingBuilder",
+      "component": "src/js/components/weekBuilder.js",
+      "route": "src/server/routes/training.js",
+      "lib": ["src/server/lib/templates.js (BLOCK_TEMPLATES, 26 palette entries)", "src/server/lib/exercises.js (EXERCISE_TEMPLATES, 224 entries — mode: interval|steady|strength|mobility + structured timer)", "src/server/lib/autobuild.js (rules-based week generator)", "src/js/lib/workoutQueue.js", "src/js/components/blockTimerWidget.js", "src/js/components/blockStyleConfig.js"],
+      "dataModel": "training_weeks (profile_id + week_start_date, unique) / training_blocks (day_of_week, block_type, title, duration_min, details JSON: exerciseId | subBlocks[])",
+      "description": "Drag-and-drop (SortableJS) weekly training planner. Day/Week/Month views. Blocks can be compound (details.subBlocks — multiple exercises per session) with an inline timer widget. Mobile: '📍 Place' button opens a day+position picker modal instead of drag; palette browsing is a category tile grid + modal below 1024px. 'Start Workout' hands a workoutQueue.js step queue to Sprint Timer. Every BLOCK_TEMPLATES label has a matching EXERCISE_TEMPLATES name by design — see ARCHITECTURE.md's 'Every BLOCK_TEMPLATES label...' note if either file is edited."
+    },
+    {
+      "id": 26, "title": "Goal Dashboard", "group": "Training Builder", "flag": "isGoals",
+      "component": "src/js/components/goalDashboard.js",
+      "route": "src/server/routes/goals.js",
+      "dataModel": "goals (profile_id, goal_type, target_date, ...) + static GOAL_TEMPLATES (templates.js)",
+      "description": "Milestone/goal CRUD. 'Build Week from this Goal' hands off to Week Builder via $root.pendingAutobuildGoalId, which runs autobuild.js's rules engine (not AI) for that goal's domain (running/trail/calisthenics/cycling/swimming/boxing/general)."
+    },
+    {
+      "id": 27, "title": "Daily Tracker", "group": "Training Builder", "flag": "isTracker",
+      "component": "src/js/components/dailyTracker.js",
+      "route": "src/server/routes/tracker.js",
+      "dataModel": "daily_trackers (profile_id + date, unique; legacy strava_url/notes columns, read-only) / tracker_activities (one row per logged activity: name, strava_url, notes, sort_order) / tracker_screenshots (activity_id nullable, app-level reference only, no FK)",
+      "description": "A day can hold MULTIPLE activities (added 2026-07-28), each with its own name/Strava link/notes/screenshots, added via '+ Add activity' and removed via '− Remove' (native confirm() warning first — destructive, deletes screenshot files too). Pre-existing single-activity data (before this existed) is synthesized as a pseudo-activity (id: 'legacy') and promotes into a real row on first edit — see routes/tracker.js's header comment. Shows read-only chips of whatever Week Builder planned for the same date (no FK, re-derives week_start_date+day_of_week). Embeds the AI Analyzer panel below."
+    },
+    {
+      "id": null, "title": "AI Analyzer", "group": "Training Builder", "flag": null,
+      "component": "src/js/components/aiAnalyzer.js (embedded only inside Daily Tracker — no page id of its own)",
+      "route": "src/server/routes/ai.js",
+      "lib": "src/server/lib/openai.js",
+      "dataModel": "ai_analyses (profile_id, scope, period_start, period_end, summary, raw_response) — cache key is (profile_id, scope, period_start)",
+      "description": "day/week/month vision-model summary over workout_logs + Daily Tracker activities + Food Planner meals + Supplements taken. Per-activity screenshots are grouped with that activity's own name/notes as adjacent content parts (not one flat image pile) so the model can scope down a day activity-by-activity. Strava links are never sent to the model (not fetchable — see openai.js's buildIntro()). Cached per period; 'Regenerate' forces a fresh (quota-metered) call."
+    },
+    {
+      "id": 31, "title": "Sprint Timer", "group": "Training Builder", "flag": "isSprintTimer",
+      "component": "src/js/components/sprintTimer.js",
+      "lib": ["src/server/lib/timerPresets.js", "src/js/data/timerPhrases.json"],
+      "description": "Giant-UI interval timer for run/cycling/swimming, warmup -> (work<->rest)xrounds -> cooldown, or a plain 'steady' continuous phase for non-interval exercises. Opened directly: manual category/preset picker. Opened via Week Builder's '▶ Start': consumes a workoutQueue.js step queue instead (this.queue), skipping the picker — each step's own resolved mode (interval vs steady) drives the phase engine, which is what makes an easy/steady exercise never render as interval rounds. Web Audio beeps + SpeechSynthesis voice cues + Wake Lock; no build step, no asset files."
+    },
+    {
+      "id": 28, "title": "Settings", "group": "Account", "flag": "isSettings",
+      "component": "src/js/components/settingsPage.js",
+      "route": "src/server/routes/account.js",
+      "description": "Password change (bcrypt + shared policy check), usage quota display, language preference (persists users.preferred_language; 'Apply' separately flips the googtrans cookie Google Translate reads + reloads — not auto-applied on login), theme toggle (shared root darkMode state, no new state here)."
+    },
+    {
+      "id": 29, "title": "Food Planner", "group": "Planner", "flag": "isNutrition",
+      "component": "src/js/components/foodPlanner.js",
+      "route": "src/server/routes/nutrition.js",
+      "lib": ["src/server/lib/foods.js (FOOD_TEMPLATES, ~24 Guatemalan staples)", "src/server/lib/nutritionTargets.js"],
+      "dataModel": "meal_plans (profile_id + week_start_date) / meal_plan_items (day_of_week, meal_slot, food_id, grams — food_id is a string reference into foods.js, not an FK)",
+      "description": "Weekly meal planner, one day shown at a time (day tabs) + a week-overview kcal-vs-target strip. All macro math computed server-side from grams + foods.js on every read."
+    },
+    {
+      "id": 30, "title": "Supplements", "group": "Planner", "flag": "isSupplements",
+      "component": "src/js/components/supplementStack.js",
+      "route": "src/server/routes/supplements.js",
+      "lib": "src/server/lib/supplements.js (SUPPLEMENT_TEMPLATES, the same 8 supplements cited in db.js pages 7/8)",
+      "dataModel": "supplement_intakes (profile_id, date, supplement_key) — 'taken' is row presence, not a boolean; PUT replaces the whole day's set (delete-all-then-reinsert)",
+      "description": "Daily supplement checklist, same day-navigation pattern as Daily Tracker."
+    }
+  ],
+
+  "crossCutting": {
+    "auth": "src/server/routes/auth.js + middleware/auth.js — session-cookie based (MySQL-backed store, not in-memory), requireAuth only proves a session exists; every profile-scoped route re-checks profile.user_id === session.userId.",
+    "quotas": "src/server/lib/quota.js + usage_events table — durable per-account daily caps on screenshot uploads and AI analyze calls, no bypass for any account.",
+    "exports": "Week Builder only: src/server/lib/exporters/{csv,ics,pdf}.js.",
+    "heroImages": "src/server/lib/pexels.js + routes/images.js — per-page heroQuery string in db.js, 24h server cache, graceful null fallback if no PEXELS_API_KEY.",
+    "sidebarNav": "src/js/db.js's NAV_GROUPS + app.js's navGroups/setPage() — mobile drawer below 1024px is a group-tile grid + modal (activeNavGroupModal), not the desktop's full list; see ARCHITECTURE.md's 'Collapsible sidebar' section."
+  }
+}
