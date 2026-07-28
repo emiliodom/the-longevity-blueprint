@@ -16,15 +16,18 @@ src/
     ├── db.js                    — DB[] page content array + NAV_GROUPS (sidebar)
     ├── storage.js                — Storage: the only object that calls fetch()
     ├── data/timerPhrases.json    — getReady/pushThrough voice+popup phrase pools for sprintTimer.js (plain static JSON, no server route — fetched straight off the /src static mount)
+    ├── lib/
+    │   └── workoutQueue.js       — window.WorkoutQueue.buildQueueFromBlock(): turns a Week Builder block into a runnable step queue (see "Compound blocks" section below) — shared, unmemoized, by blockTimerWidget.js and sprintTimer.js so both agree
     └── components/
         ├── calculators.js       — 9 biometric calculator components
         ├── charts.js            — BarChart / DonutChart (Chart.js wrappers)
-        ├── blockStyleConfig.js  — window.BlockStyleConfig: block style/position/collision/animation tuning (plain data — edit this, not weekBuilder.js/style.css, to retune how blocks look/drag)
-        ├── weekBuilder.js       — WeekBuilder: drag-and-drop week planner (SortableJS)
+        ├── blockStyleConfig.js  — window.BlockStyleConfig: block style/position/collision/animation tuning + MODE_STYLE badge icons (plain data — edit this, not weekBuilder.js/style.css, to retune how blocks look/drag)
+        ├── weekBuilder.js       — WeekBuilder: drag-and-drop week planner (SortableJS) + compound blocks (see "Compound blocks" section below)
+        ├── blockTimerWidget.js  — BlockTimerWidget: compact inline timer on an expanded block card (see "Compound blocks" section below)
         ├── goalDashboard.js     — GoalDashboard: milestone CRUD + "Build Week" handoff
         ├── dailyTracker.js      — DailyTracker: Strava link + screenshots, embeds AiAnalyzer
         ├── aiAnalyzer.js        — AiAnalyzer: day/week/month OpenAI summary panel
-        ├── sprintTimer.js       — SprintTimer: warmup/work/rest/cooldown interval timer (see "Sprint/Interval Timer" section below)
+        ├── sprintTimer.js       — SprintTimer: warmup/work/rest/cooldown interval timer, now queue-aware (see "Sprint/Interval Timer" section below)
         ├── settingsPage.js      — SettingsPage: password, usage quotas, language, theme
         ├── foodPlanner.js       — FoodPlanner: Guatemalan-food weekly meal planner vs daily calorie/macro target
         └── supplementStack.js   — SupplementStack: daily checklist for the 8-supplement stack (db.js pages 7/8)
@@ -48,7 +51,7 @@ src/server/                       — backend, one small file per concern
 │   └── rateLimit.js                — authLimiter (in-memory, login/register brute-force protection)
 ├── lib/
 │   ├── templates.js               — GOAL_TEMPLATES / BLOCK_TEMPLATES (static content, not user data)
-│   ├── exercises.js                — EXERCISE_TEMPLATES: 200 exercises (25/category) for the Week Builder's block-detail modal
+│   ├── exercises.js                — EXERCISE_TEMPLATES: 200 exercises (25/category) for the Week Builder's block-detail modal, each carrying a `mode` ('interval'|'steady'|'strength'|'mobility') + structured `timer` so workoutQueue.js/sprintTimer.js can run it directly (see "Compound blocks" section below)
 │   ├── autobuild.js                — deterministic rules engine: goal + week → suggested blocks
 │   ├── openai.js                   — OpenAI vision analyzer (server-side key, never sent to browser)
 │   ├── quota.js                    — durable per-account usage quotas (uploads, AI calls) — usage_events table
@@ -198,9 +201,23 @@ Deterministic and rules-based — **not** an AI feature. `GOAL_TYPE_DOMAIN` maps
 
 `goalDashboard.js`'s "Build Week from this Goal" button sets `this.$root.pendingAutobuildGoalId` and navigates to the Week Builder page. `weekBuilder.js` checks that field on `mounted()`, consumes it (selects the goal + runs autobuild), and clears it. This uses the single Vue root instance (already the app's global state holder in `app.js`) instead of introducing a state-management library — see the comment block at the top of both files.
 
+## Compound blocks (weekBuilder.js, workoutQueue.js, blockTimerWidget.js)
+
+A day-block can hold more than one exercise — e.g. a warmup jog + `6x400m` + cooldown jog, or squats + lunges + plank, as one connected session — without any DB migration: `details.subBlocks: [{ id, exerciseId, title, category }, ...]` lives inside the block's existing `details` JSON column and is persisted through the existing `PUT /blocks/:blockId`, exactly like every other `details` edit. A block with no `subBlocks` still behaves exactly as before (a single implicit item via `resolvedExercise()`).
+
+- **Expand caret** (`▸`/`▾`, `toggleExpand()`/`isExpanded()`) reveals the sub-item list on a block card: mode badge (`BlockStyleConfig.modeStyle()`), move up/down, remove, and a **"+ Add exercise"** button.
+- **"+ Add exercise"** reuses the Swap picker modal in a new `mode: 'append'` (`openAddSubBlock()`) instead of `'replace'` — `selectExercise()` branches on `detailItem.mode` to either replace the block's own exercise (unchanged Swap behavior) or push a new entry onto `details.subBlocks`.
+- **`subBlocksFor(block)`** is the single read path for "what's in this session" — falls back to the block's one resolved exercise as an implicit one-item list when `subBlocks` hasn't been created yet, so a plain block still renders sensibly when expanded. `workoutQueue.js`'s fallback mirrors this exact rule.
+
+**`src/js/lib/workoutQueue.js`** (`window.WorkoutQueue.buildQueueFromBlock(block, exercises)`) turns a block into an ordered array of runnable steps — one per `subBlocks` entry (or the single implicit item), each carrying its resolved exercise's `mode`/`timer` from `exercises.js`. This is the **single shared engine** behind both timer surfaces below, so a steady exercise can never render as an interval-rounds UI on one surface but not the other.
+
+**`src/js/components/blockTimerWidget.js`** mounts inside an expanded block card (`v-if`, so a fresh instance is created every time the panel opens — deliberately *not* reactive to prop changes after mount, so editing an unrelated block elsewhere on the week never resets a running inline timer). Steps through the block's queue automatically: a `'steady'` step is a plain continuous countdown, an `'interval'` step runs its own work/rest rounds. No audio/voice/wake-lock — this is for glancing while planning/reviewing; the full-page Sprint Timer (below) remains the immersive, giant-UI option for actually training outdoors.
+
 ## Week Builder → Sprint Timer handoff ("Start Workout")
 
-Same pattern as the Goal Dashboard handoff above, just the other direction: a block's "▶ Start" button sets `this.$root.pendingTimerCategory` (only for `run`/`cycling`/`swimming` — the three categories `lib/timerPresets.js` actually covers; other categories still navigate over, just without a category pre-selected) and calls `this.$root.setPage(SPRINT_TIMER_PAGE_ID)`. `sprintTimer.js` checks that field on `mounted()`, consumes it into `this.category`, and clears it. Deliberately doesn't attempt to map the block's specific exercise to a matching timer preset — exercise names and timer preset names aren't guaranteed to align, and guessing wrong would be worse than just landing on the right category tab.
+Same $root-field pattern as the Goal Dashboard handoff above, just the other direction: a block's "▶ Start" button (`startWorkout()`) builds the block's full step queue via `WorkoutQueue.buildQueueFromBlock()`, sets `this.$root.pendingTimerQueue` to it, and calls `this.$root.setPage(SPRINT_TIMER_PAGE_ID)`. `sprintTimer.js` checks that field on `mounted()`, consumes it into `this.queue`, and clears it.
+
+This queue — not the block's sport category — is what the Sprint Timer's phase engine now branches on (see "Sprint/Interval Timer" below). Earlier, `startWorkout()` only forwarded `block.blockType` (`run`/`cycling`/`swimming`), so *any* block in one of those categories — including an easy/steady run or a recovery swim — opened the same 8-rounds interval UI as a real sprint session, since nothing distinguished a steady effort from an interval one. Tagging every `exercises.js` entry with a `mode` and handing off the resolved queue instead of a bare category string is the actual fix.
 
 ## Block-card actions and Exercise Insights (weekBuilder.js)
 
@@ -209,6 +226,8 @@ Each placed block has four footer actions, not the two-icon overlay from earlier
 - **📊 Insights** — a *different* modal (`insightItem`, not `detailItem`): a deep-dive on the ONE exercise resolved for this specific block, not a list of alternatives. `resolvedExercise(block)` tries `details.exerciseId` first (set whenever a block has actually been swapped), then falls back to an exact name match against `EXERCISE_TEMPLATES` for blocks placed straight from a palette template and never swapped (many template labels and exercise names intentionally coincide, e.g. "Zone 2 Easy Run", so this fallback resolves more often than it might look like it should). If neither resolves, the modal shows an empty state pointing at Swap instead of guessing. The panel surfaces `exercise.insight` — a coaching cue/pitfall field on every `EXERCISE_TEMPLATES` entry, separate from `description` (which says *what* the exercise is, not how to do it well) — specifically added so this panel would have "more meat" than the compact Swap-list card.
 - **▶ Start** — see the handoff section above.
 - **✕** — unchanged, `deleteBlock()`.
+
+Expanding a card (see "Compound blocks" above) reveals a fifth, block-level action set below these four: the sub-item list and inline timer widget.
 
 ## Collapsible sidebar (app.js, index.html)
 
@@ -246,7 +265,9 @@ Week Builder / Goal Dashboard / Daily Tracker / Settings / Food Planner / Supple
 
 ## Sprint/Interval Timer (sprintTimer.js, lib/timerPresets.js)
 
-A deliberately different content model from `lib/exercises.js`: that catalog's `dosage` field is free text for a human to read ("8-12 x 400m, 90s jog rest" mixes a distance with a duration — not parseable into a countdown). `TIMER_PRESETS` is fully structured (`rounds`/`workSec`/`restSec`) specifically so the timer can run a preset directly, and deliberately covers only the three split-based sports (run/cycling/swimming), not all 8 block categories. Picking a preset just pre-fills the editable rounds/work/rest fields — it's a starting point, not a locked-in config.
+**Two entry points, one phase engine.** Opened directly from nav (no `pendingTimerQueue` handoff), the timer behaves exactly as originally designed: pick a category, optionally pick a `TIMER_PRESETS` entry (fully structured `rounds`/`workSec`/`restSec`, deliberately covering only the three split-based sports, unlike `lib/exercises.js`'s human-readable `dosage`) to pre-fill the editable rounds/work/rest fields, then Start. Arrived via a Week Builder block's "▶ Start" (`this.queue` set — see "Week Builder → Sprint Timer handoff" above), that whole picker is skipped in favor of a read-only preview of exactly what's queued, since the block's exercises already carry real prescribed data. Either way, `currentQueue` (computed) normalizes both cases into the same step array — `this.queue` verbatim, or a single synthetic interval step built from the manual picker — so the phase engine below never needs to know which entry point it came from.
+
+**Phase engine is queue-driven, not a fixed single work/rest config.** `_enterStep(index)` reads `currentQueue[index]`: an `'interval'`-mode step starts its own round loop (`work` ⇄ `rest` × `rounds`), a `'steady'`-mode step is a single continuous phase (own `steady` color/label, no rounds, no rest) — this per-step branch is what fixes the bug where an easy/steady exercise incorrectly ran the interval rounds UI (see the handoff section above). `_advanceStep()` moves to the next queue item once the current one finishes, so a multi-step queue (a compound block's warmup jog + main set + cooldown jog, say) is walked automatically end-to-end, with a "Step 2/3 · <label>" caption (`stepPositionLabel`) above the phase display whenever there's more than one step. The global warmup/cooldown toggles still wrap the *whole* queue once at the very start/end, same as before — they're a session-level setting, not per-step.
 
 **UI is deliberately oversized** — `.timer-display`'s countdown scales up to `10rem` (`clamp(4rem, 22vw, 10rem)`), the whole card fills with a solid phase color (`.timer-phase-work`/`-rest`/`-done`), not just a small badge. This is intentional: the tool is meant to be glanced at from arm's length (or further) mid-run/ride, not read up close.
 
@@ -256,9 +277,9 @@ A deliberately different content model from `lib/exercises.js`: that catalog's `
 
 **Countdown is anchored to `Date.now()`, not a naive `setInterval` decrement** (`_phaseEndAt`, `start()`/`_tick()`/`_transitionPhase()`). A plain "subtract 1 each tick" clock drifts behind real elapsed time the longer it runs — `setInterval` ticks can be delayed by a busy event loop or a backgrounded/throttled tab, and a decrement-based clock never reclaims that lost time, only compounds it. Every tick instead recomputes `secondsLeft` from the wall-clock timestamp the current phase should end at, so a late tick just catches up to the true remaining time. `pause()`/`resume()` capture/restore the remaining milliseconds rather than pausing a decrement counter, for the same reason.
 
-**Phase sequence**: `idle -> [warmup] -> (work -> rest) × rounds -> [cooldown] -> done`. `warmupEnabled`/`cooldownEnabled` (both default on, persisted to `localStorage` like the sound/voice prefs) skip that phase entirely rather than running it with a zero duration — `start()` and `_transitionPhase()` both branch on them directly. `currentRound` only increments on the `rest -> work` transition, so a round's *rest* is considered part of that same round, not the next one — `roundStatus(n)` (used by both the round label and the sidebar cards below) treats a round as `'current'` only while its own `work` sub-phase is active, and `'done'` for the rest of that round's rest, cooldown, or `done`.
+**Phase sequence**: `idle -> [warmup] -> <per queue step: (work -> rest) × rounds, or a single steady phase> -> [cooldown] -> done`. `warmupEnabled`/`cooldownEnabled` (both default on, persisted to `localStorage` like the sound/voice prefs) skip that phase entirely rather than running it with a zero duration — `start()` and `_advanceStep()` both branch on them directly. `currentRound` only increments on the `rest -> work` transition, so a round's *rest* is considered part of that same round, not the next one — `roundStatus(stepIdx, roundNum)` (used by both the round label and the sidebar cards below) treats a round as `'current'` only while its own `work` sub-phase is active on the current step, and `'done'` otherwise.
 
-**Session sidebar** (`sessionCards` computed, `.timer-rounds-sidebar`/`.timer-round-card`): one card per warm-up/round/cool-down across the *whole* session, each flagged done/current/upcoming — real-time visibility into how much of the session is behind you and how much is left, not just the current round's countdown. Horizontal scroll strip under 1024px width, a fixed-width scrolling column beside the big countdown above that.
+**Session sidebar** (`sessionCards` computed, `.timer-rounds-sidebar`/`.timer-round-card`): one card per warm-up/round/cool-down across the *whole* session — for a multi-step queue, an interval step contributes one card per round (prefixed with its own label when there's more than one step) and a steady step contributes a single card — each flagged done/current/upcoming — real-time visibility into how much of the session is behind you and how much is left, not just the current round's countdown. Horizontal scroll strip under 1024px width, a fixed-width scrolling column beside the big countdown above that.
 
 **Motivational voice/popup cues** (`_showMotivation()`, `src/js/data/timerPhrases.json`) are a separate, additional layer on top of the structural "Go"/"Rest"/"Cool down" announcements above — a random phrase from `getReady` fires once per phase in the last 3 seconds of `warmup`/`rest` (work is about to start), and one from `pushThrough` in the last 3 seconds of `work` (it's about to end), both spoken via `SpeechSynthesis` and flashed as a `.timer-motivation-popup` banner over the countdown for ~2.5s. `_motivationShownForPhase` gates it to once per phase (reset in `_enterPhase()`) so it doesn't refire on every one of the 3 countdown ticks. Plain JSON (not a server route) — no profile-scoping or DB round-trip needed for static phrase lists, fetched directly from the `/src` static mount already serving every other client asset.
 
