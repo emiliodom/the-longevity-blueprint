@@ -1440,6 +1440,38 @@ html.light-mode code.text-sky-400 {
   border-radius:  .5rem;
   border:         1px solid var(--c-border);
 }
+
+/* One card per logged activity (dailyTracker.js) — a day can now hold
+   several, each independently saved/removed. */
+.tracker-activity-card { border-left: 3px solid var(--c-accent); }
+.tracker-activity-actions {
+  display: flex;
+  gap:     .5rem;
+}
+.tracker-remove-btn {
+  padding:       .5rem 1rem;
+  border-radius: .75rem;
+  font-size:     .8rem;
+  font-weight:   600;
+  color:         #f87171;
+  background:    var(--c-surface2);
+  border:        1px solid var(--c-border);
+  transition:    border-color .15s, background .15s;
+}
+.tracker-remove-btn:hover { border-color: #f87171; background: rgba(248,113,113,.1); }
+.tracker-add-activity-btn {
+  width:         100%;
+  text-align:    center;
+  font-size:     .85rem;
+  font-weight:   600;
+  color:         var(--c-accent);
+  background:    rgba(56,189,248,.08);
+  border:        1px dashed var(--c-accent);
+  border-radius: .75rem;
+  padding:       .75rem;
+  transition:    background .15s;
+}
+.tracker-add-activity-btn:hover { background: rgba(56,189,248,.18); }
 .ai-summary {
   background:    var(--c-surface);
   border:        1px solid var(--c-border);

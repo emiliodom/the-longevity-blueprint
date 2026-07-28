@@ -1,5 +1,6 @@
 /**
- * dailyTracker.js — Daily Exercise Tracker (Strava link + screenshots)
+ * dailyTracker.js — Daily Exercise Tracker (multiple activities per day,
+ * each with its own name + Strava link + notes + screenshots)
  *
  * Embeds <ai-analyzer> (aiAnalyzer.js) below the day's data so "analyze
  * my day" always has this profile's current date in view.
@@ -33,11 +34,15 @@ app.component('DailyTracker', {
   data() {
     return {
       date:          toIsoDateLocal(new Date()),
-      entry:         { stravaUrl: '', notes: '', screenshots: [] },
+      // Each item: { id, name, stravaUrl, notes, screenshots }. Edited
+      // in place via v-model, persisted per-activity by saveActivity() —
+      // there's no single day-level save anymore, every activity is its
+      // own independent record (see routes/tracker.js).
+      activities:    [],
       plannedBlocks: [],
       loading:       false,
-      saving:        false,
-      uploading:     false
+      savingId:      null, // activity id currently being saved, for that one card's button state
+      uploadingId:   null  // activity id currently uploading, for that one card's spinner
     };
   },
   async mounted() {
@@ -56,9 +61,9 @@ app.component('DailyTracker', {
         // Rapid day-shift clicks fire overlapping requests — if the date
         // moved on again before this one resolved, its response is for a
         // day we're no longer showing; applying it would overwrite the
-        // current date's entry with a stale one.
+        // current date's activities with stale ones.
         if (this.date !== requestedDate) return;
-        this.entry = data || { stravaUrl: '', notes: '', screenshots: [] };
+        this.activities = data?.activities || [];
       } finally {
         if (this.date === requestedDate) this.loading = false;
       }
@@ -99,33 +104,53 @@ app.component('DailyTracker', {
       await this.refreshDay();
     },
 
-    async save() {
-      this.saving = true;
+    // ── Activities: add ("+"), edit+save, remove ("−", warn+confirm) ────
+    async addActivity() {
+      const data = await Storage.addTrackerActivity(this.profile.id, this.date, { name: '', stravaUrl: '', notes: '' });
+      this.activities = data.activities;
+    },
+
+    async saveActivity(activity) {
+      this.savingId = activity.id;
       try {
-        this.entry = await Storage.saveTrackerDay(this.profile.id, this.date, {
-          stravaUrl: this.entry.stravaUrl, notes: this.entry.notes
+        const data = await Storage.updateTrackerActivity(this.profile.id, this.date, activity.id, {
+          name: activity.name, stravaUrl: activity.stravaUrl, notes: activity.notes
         });
+        this.activities = data.activities;
       } finally {
-        this.saving = false;
+        this.savingId = null;
       }
     },
 
-    async onFilesSelected(event) {
+    // Destructive and permanent (screenshots are deleted from disk too) —
+    // a native confirm() is the same pattern weekBuilder.js's runAutobuild()
+    // already uses for its one destructive action, kept consistent here
+    // rather than introducing a custom modal for just this.
+    async removeActivity(activity) {
+      const label = activity.name?.trim() || 'this activity';
+      if (!confirm(`Remove "${label}" and all of its screenshots? This cannot be undone.`)) return;
+      const data = await Storage.deleteTrackerActivity(this.profile.id, this.date, activity.id);
+      this.activities = data.activities;
+    },
+
+    async onFilesSelected(event, activity) {
       const files = event.target.files;
       if (!files || !files.length) return;
-      this.uploading = true;
+      this.uploadingId = activity.id;
       try {
-        this.entry = await Storage.uploadScreenshots(this.profile.id, this.date, files);
+        const data = await Storage.uploadActivityScreenshots(this.profile.id, this.date, activity.id, files);
+        this.activities = data.activities;
       } catch (e) {
         alert('Upload failed: ' + e.message);
       } finally {
-        this.uploading = false;
+        this.uploadingId = null;
         event.target.value = '';
       }
     },
 
     async deleteScreenshot(shotId) {
-      this.entry = await Storage.deleteScreenshot(this.profile.id, this.date, shotId);
+      const data = await Storage.deleteScreenshot(this.profile.id, this.date, shotId);
+      this.activities = data.activities;
     }
   },
   template: `
@@ -145,25 +170,40 @@ app.component('DailyTracker', {
             </span>
           </div>
         </div>
+      </div>
 
+      <!-- One card per logged activity — "+" below adds another, "−" on each
+           card removes it (warns + confirms first, since screenshots are
+           deleted permanently too). -->
+      <div v-for="activity in activities" :key="activity.id" class="module-card tracker-activity-card space-y-3">
+        <div>
+          <label class="text-xs text-slate-400 mb-1 block">Activity name</label>
+          <input v-model="activity.name" type="text" class="calc-input" placeholder="e.g. Morning Run, Evening Swim">
+        </div>
         <div>
           <label class="text-xs text-slate-400 mb-1 block">Strava Activity Link</label>
-          <input v-model="entry.stravaUrl" type="url" class="calc-input" placeholder="https://www.strava.com/activities/...">
+          <input v-model="activity.stravaUrl" type="url" class="calc-input" placeholder="https://www.strava.com/activities/...">
         </div>
         <div>
           <label class="text-xs text-slate-400 mb-1 block">Notes</label>
-          <textarea v-model="entry.notes" rows="3" class="calc-input resize-none" placeholder="How did today feel? Effort, soreness, sleep, mood…"></textarea>
+          <textarea v-model="activity.notes" rows="3" class="calc-input resize-none" placeholder="How did it feel? Effort, soreness, pace…"></textarea>
         </div>
-        <button @click="save" :disabled="saving" class="py-2 px-4 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition">
-          {{ saving ? 'Saving…' : 'Save Day' }}
-        </button>
+
+        <div class="tracker-activity-actions">
+          <button @click="saveActivity(activity)" :disabled="savingId === activity.id"
+                  class="py-2 px-4 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition">
+            {{ savingId === activity.id ? 'Saving…' : '💾 Save' }}
+          </button>
+          <button @click="removeActivity(activity)" class="tracker-remove-btn">− Remove</button>
+        </div>
 
         <div>
           <label class="text-xs text-slate-400 mb-2 block">Screenshots (Strava / insights / wearable summaries)</label>
-          <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple @change="onFilesSelected" class="text-xs text-slate-400">
-          <p v-if="uploading" class="text-xs text-sky-400 mt-1">Uploading…</p>
-          <div v-if="entry.screenshots && entry.screenshots.length" class="flex flex-wrap gap-2 mt-3">
-            <div v-for="s in entry.screenshots" :key="s.id" class="relative group">
+          <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple
+                 @change="onFilesSelected($event, activity)" class="text-xs text-slate-400">
+          <p v-if="uploadingId === activity.id" class="text-xs text-sky-400 mt-1">Uploading…</p>
+          <div v-if="activity.screenshots && activity.screenshots.length" class="flex flex-wrap gap-2 mt-3">
+            <div v-for="s in activity.screenshots" :key="s.id" class="relative group">
               <img :src="s.url" class="screenshot-thumb">
               <button @click="deleteScreenshot(s.id)"
                       class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-600 text-white text-xs leading-none opacity-0 group-hover:opacity-100 transition">✕</button>
@@ -171,6 +211,8 @@ app.component('DailyTracker', {
           </div>
         </div>
       </div>
+
+      <button @click="addActivity" class="tracker-add-activity-btn">+ Add activity</button>
 
       <ai-analyzer :profile="profile" :date="date"></ai-analyzer>
     </div>
