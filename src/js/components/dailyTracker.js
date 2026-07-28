@@ -1,6 +1,10 @@
 /**
  * dailyTracker.js — Daily Exercise Tracker (multiple activities per day,
- * each with its own name + Strava link + notes + screenshots)
+ * each with its own name + Strava link + notes + screenshots) plus a
+ * single-per-day Wellness Track entry (name + description + optional link +
+ * score + screenshots) for wearable summaries like a Samsung Galaxy Watch
+ * daily score — see routes/tracker.js's header comment on why it's a
+ * separate concept from activities.
  *
  * Embeds <ai-analyzer> (aiAnalyzer.js) below the day's data so "analyze
  * my day" always has this profile's current date in view.
@@ -39,10 +43,16 @@ app.component('DailyTracker', {
       // there's no single day-level save anymore, every activity is its
       // own independent record (see routes/tracker.js).
       activities:    [],
+      // Single per-day entry (wearable summaries, e.g. Samsung Galaxy Watch
+      // daily score) — unlike activities, never a list. Defaulted to a blank
+      // shape when the day has no row yet; saveWellness() upserts on first save.
+      wellness:      { id: null, name: '', description: '', link: '', score: null, screenshots: [] },
       plannedBlocks: [],
       loading:       false,
       savingId:      null, // activity id currently being saved, for that one card's button state
-      uploadingId:   null  // activity id currently uploading, for that one card's spinner
+      uploadingId:   null, // activity id currently uploading, for that one card's spinner
+      savingWellness:    false,
+      uploadingWellness: false
     };
   },
   async mounted() {
@@ -64,6 +74,7 @@ app.component('DailyTracker', {
         // current date's activities with stale ones.
         if (this.date !== requestedDate) return;
         this.activities = data?.activities || [];
+        this.wellness = data?.wellness || { id: null, name: '', description: '', link: '', score: null, screenshots: [] };
       } finally {
         if (this.date === requestedDate) this.loading = false;
       }
@@ -151,6 +162,40 @@ app.component('DailyTracker', {
     async deleteScreenshot(shotId) {
       const data = await Storage.deleteScreenshot(this.profile.id, this.date, shotId);
       this.activities = data.activities;
+    },
+
+    // ── Wellness Track: single per-day entry, upserted on save ──────────
+    async saveWellness() {
+      this.savingWellness = true;
+      try {
+        const data = await Storage.saveWellness(this.profile.id, this.date, {
+          name: this.wellness.name, description: this.wellness.description,
+          link: this.wellness.link, score: this.wellness.score
+        });
+        this.wellness = data.wellness || this.wellness;
+      } finally {
+        this.savingWellness = false;
+      }
+    },
+
+    async onWellnessFilesSelected(event) {
+      const files = event.target.files;
+      if (!files || !files.length) return;
+      this.uploadingWellness = true;
+      try {
+        const data = await Storage.uploadWellnessScreenshots(this.profile.id, this.date, files);
+        this.wellness = data.wellness;
+      } catch (e) {
+        alert('Upload failed: ' + e.message);
+      } finally {
+        this.uploadingWellness = false;
+        event.target.value = '';
+      }
+    },
+
+    async deleteWellnessScreenshot(shotId) {
+      const data = await Storage.deleteWellnessScreenshot(this.profile.id, this.date, shotId);
+      this.wellness = data.wellness;
     }
   },
   template: `
@@ -213,6 +258,51 @@ app.component('DailyTracker', {
       </div>
 
       <button @click="addActivity" class="tracker-add-activity-btn">+ Add activity</button>
+
+      <!-- Wellness Track: single per-day entry for wearable summaries (e.g.
+           Samsung Galaxy Watch daily score) — not a list, unlike activities. -->
+      <div class="module-card tracker-wellness-card space-y-3">
+        <h3 class="text-sm font-semibold text-slate-300">⌚ Wellness Track</h3>
+        <div>
+          <label class="text-xs text-slate-400 mb-1 block">Name</label>
+          <input v-model="wellness.name" type="text" class="calc-input" placeholder="e.g. Galaxy Watch Daily Score">
+        </div>
+        <div>
+          <label class="text-xs text-slate-400 mb-1 block">Description</label>
+          <textarea v-model="wellness.description" rows="3" class="calc-input resize-none" placeholder="Sleep, energy, heart rate insights, how you felt…"></textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-slate-400 mb-1 block">Daily score</label>
+            <input v-model.number="wellness.score" type="number" min="0" max="100" class="calc-input" placeholder="0-100">
+          </div>
+          <div>
+            <label class="text-xs text-slate-400 mb-1 block">Link (optional)</label>
+            <input v-model="wellness.link" type="url" class="calc-input" placeholder="https://...">
+          </div>
+        </div>
+
+        <div class="tracker-activity-actions">
+          <button @click="saveWellness" :disabled="savingWellness"
+                  class="py-2 px-4 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition">
+            {{ savingWellness ? 'Saving…' : '💾 Save' }}
+          </button>
+        </div>
+
+        <div>
+          <label class="text-xs text-slate-400 mb-2 block">Screenshots (Watch app / wellness summary)</label>
+          <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple
+                 @change="onWellnessFilesSelected" class="text-xs text-slate-400">
+          <p v-if="uploadingWellness" class="text-xs text-sky-400 mt-1">Uploading…</p>
+          <div v-if="wellness.screenshots && wellness.screenshots.length" class="flex flex-wrap gap-2 mt-3">
+            <div v-for="s in wellness.screenshots" :key="s.id" class="relative group">
+              <img :src="s.url" class="screenshot-thumb">
+              <button @click="deleteWellnessScreenshot(s.id)"
+                      class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-600 text-white text-xs leading-none opacity-0 group-hover:opacity-100 transition">✕</button>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <ai-analyzer :profile="profile" :date="date"></ai-analyzer>
     </div>

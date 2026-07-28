@@ -73,7 +73,7 @@ src/server/                       — backend, one small file per concern
     ├── log.js                        — Exercise Journal (run/cycle/lift sessions)
     ├── goals.js                       — Goal Dashboard CRUD + GET .../goals/templates
     ├── training.js                     — Week Builder: weeks/blocks CRUD, autobuild, CSV/ICS/PDF export
-    ├── tracker.js                       — Daily Tracker: Strava link + screenshot upload
+    ├── tracker.js                       — Daily Tracker: activities (Strava link + screenshots) + single-per-day Wellness Track entry
     ├── ai.js                             — POST .../ai/analyze (day/week/month, cached)
     ├── images.js                          — GET /api/images/hero (Pexels-backed, graceful null fallback)
     ├── nutrition.js                        — Food Planner: foods list, meal-plan weeks/items, computed macros/targets
@@ -211,6 +211,14 @@ A day can hold several logged activities (added 2026-07-28) — `daily_trackers`
 **Legacy data (pre-multi-activity) is synthesized, not migrated** — `daily_trackers.strava_url`/`notes` kept their old columns, read-only. `loadTracker()` (`routes/tracker.js`) checks: if a tracker has zero real `tracker_activities` rows AND has old `strava_url`/`notes`/orphan screenshots (`activity_id IS NULL`), it synthesizes one pseudo-activity with `id: 'legacy'` so that old data keeps displaying exactly as before. Editing or deleting that pseudo-activity "promotes" it: `PUT .../activities/legacy` inserts a real `tracker_activities` row from the submitted fields, reassigns any orphan screenshots to it, and clears the old `daily_trackers` columns so it's never synthesized again; `DELETE .../activities/legacy` just clears those columns and deletes the orphan screenshots. Nothing is dropped or force-migrated on deploy — a day nobody touches keeps showing its old data forever via the synthesis path.
 
 **Frontend**: `dailyTracker.js` renders one card per activity plus a `+ Add activity` button (`addActivity()` — POSTs a blank activity immediately so it has a real id to attach edits/screenshots to). Each card saves independently (`saveActivity()`, its own "💾 Save" button — there's no single day-level save anymore) and has its own "− Remove" button (`removeActivity()`) that requires a native `confirm()` before deleting — the same destructive-action pattern `weekBuilder.js`'s `runAutobuild()` already uses, not a custom modal just for this, since the action (screenshots deleted from disk too) is irreversible.
+
+## Wellness Track (single per-day wearable-summary entry)
+
+Below the activities list sits **Wellness Track** (added 2026-07-28) — for data that comes from a wearable rather than a logged activity, e.g. a Samsung Galaxy Watch daily wellness score. Deliberately **not** another multi-item list like activities: it's one row per day, `tracker_wellness` unique on `tracker_id`, with `name`, `description`, `link` (optional), and an integer `score`. Its screenshots live in their own `wellness_screenshots` table (FK to `tracker_wellness`) rather than reusing `tracker_screenshots.activity_id`, since that column means "belongs to this activity" and a wellness entry isn't one.
+
+`PUT .../wellness` upserts — `ensureWellness()` (`routes/tracker.js`) creates the row on first save the same way `ensureTracker()` creates the day container, so the frontend never has to branch on "does a wellness row exist yet." `POST .../wellness/screenshots` likewise creates the row if needed before attaching files. There's no legacy-promotion path here (unlike activities' `id: 'legacy'` pseudo-activity) — Wellness Track didn't exist before this table did, so there's no old data to synthesize.
+
+**Frontend**: `dailyTracker.js` renders a single `tracker-wellness-card` below the `+ Add activity` button, bound directly to `this.wellness` (defaulted to a blank shape — `{ id: null, name: '', description: '', link: '', score: null, screenshots: [] }` — when the day has no row yet) with its own "💾 Save" (`saveWellness()`) and screenshot upload/delete, mirroring the activity card's controls but without an add/remove pair since there's only ever one.
 
 ## Auto-build (lib/autobuild.js)
 

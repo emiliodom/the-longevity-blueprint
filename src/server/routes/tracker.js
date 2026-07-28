@@ -10,6 +10,16 @@
  *   POST   /api/profiles/:id/tracker/:date/activities/:activityId/screenshots — multipart/form-data, field: screenshots (multiple)
  *   DELETE /api/profiles/:id/tracker/:date/screenshots/:shotId
  *
+ *   PUT    /api/profiles/:id/tracker/:date/wellness                          — upsert the day's single Wellness Track entry, body { name, description, link, score }
+ *   POST   /api/profiles/:id/tracker/:date/wellness/screenshots              — multipart/form-data, field: screenshots (multiple); creates the wellness row first if none exists yet
+ *   DELETE /api/profiles/:id/tracker/:date/wellness/screenshots/:shotId
+ *
+ * Wellness Track (tracker_wellness) is a separate, single-row-per-day
+ * concept from tracker_activities — for wearable-summary data (e.g. Samsung
+ * Galaxy Watch daily score) that isn't a logged activity. It never gets the
+ * legacy-pseudo-activity treatment: it didn't exist before this table did,
+ * so there's no old data to synthesize.
+ *
  * Screenshots feed the OpenAI vision analyzer in routes/ai.js — this
  * router only handles storage/CRUD, not analysis.
  *
@@ -78,11 +88,12 @@ async function ensureTracker(profileId, date) {
 
 async function loadTracker(profileId, date) {
   const tracker = await findOwnedTracker(profileId, date);
-  if (!tracker) return { id: null, date, activities: [] };
+  if (!tracker) return { id: null, date, activities: [], wellness: null };
 
-  const [activityRows, shotRows] = await Promise.all([
+  const [activityRows, shotRows, wellnessRows] = await Promise.all([
     query('SELECT * FROM tracker_activities WHERE tracker_id = ? ORDER BY sort_order ASC, created_at ASC', [tracker.id]),
-    query('SELECT id, activity_id, file_path, uploaded_at FROM tracker_screenshots WHERE tracker_id = ? ORDER BY uploaded_at ASC', [tracker.id])
+    query('SELECT id, activity_id, file_path, uploaded_at FROM tracker_screenshots WHERE tracker_id = ? ORDER BY uploaded_at ASC', [tracker.id]),
+    query('SELECT * FROM tracker_wellness WHERE tracker_id = ?', [tracker.id])
   ]);
 
   const shotsFor = activityId => shotRows
@@ -105,7 +116,29 @@ async function loadTracker(profileId, date) {
     });
   }
 
-  return { id: tracker.id, date: tracker.date, activities };
+  const wellnessRow = wellnessRows[0] || null;
+  let wellness = null;
+  if (wellnessRow) {
+    const wellnessShots = await query(
+      'SELECT id, file_path, uploaded_at FROM wellness_screenshots WHERE wellness_id = ? ORDER BY uploaded_at ASC',
+      [wellnessRow.id]
+    );
+    wellness = {
+      id: wellnessRow.id, name: wellnessRow.name, description: wellnessRow.description,
+      link: wellnessRow.link, score: wellnessRow.score,
+      screenshots: wellnessShots.map(s => ({ id: s.id, url: s.file_path, uploadedAt: s.uploaded_at }))
+    };
+  }
+
+  return { id: tracker.id, date: tracker.date, activities, wellness };
+}
+
+async function ensureWellness(trackerId) {
+  const existing = await query('SELECT id FROM tracker_wellness WHERE tracker_id = ?', [trackerId]);
+  if (existing[0]) return existing[0].id;
+  const id = crypto.randomUUID();
+  await query('INSERT INTO tracker_wellness (id, tracker_id) VALUES (?, ?)', [id, trackerId]);
+  return id;
 }
 
 async function findOwnedActivity(profileId, date, activityId) {
@@ -246,6 +279,69 @@ router.delete('/:date/screenshots/:shotId', async (req, res) => {
     const filePath = path.join(__dirname, '..', '..', '..', rows[0].file_path);
     if (fs.existsSync(filePath)) { try { fs.unlinkSync(filePath); } catch { /* best-effort cleanup */ } }
     await query('DELETE FROM tracker_screenshots WHERE id = ?', [req.params.shotId]);
+  }
+  res.json(await loadTracker(req.params.id, req.params.date));
+});
+
+router.put('/:date/wellness', async (req, res) => {
+  if (!(await assertOwnsProfile(req.params.id, req.session.userId)))
+    return res.status(404).json({ error: 'Profile not found' });
+
+  const { name, description, link, score } = req.body || {};
+  const trackerId = await ensureTracker(req.params.id, req.params.date);
+  const wellnessId = await ensureWellness(trackerId);
+
+  await query(
+    'UPDATE tracker_wellness SET name = ?, description = ?, link = ?, score = ? WHERE id = ?',
+    [name || null, description || null, link || null, (score === '' || score === undefined) ? null : score, wellnessId]
+  );
+  res.json(await loadTracker(req.params.id, req.params.date));
+});
+
+router.post('/:date/wellness/screenshots', upload.array('screenshots', 10), async (req, res) => {
+  const cleanup = () => (req.files || []).forEach(f => { try { fs.unlinkSync(f.path); } catch { /* best-effort cleanup */ } });
+
+  if (!(await assertOwnsProfile(req.params.id, req.session.userId))) { cleanup(); return res.status(404).json({ error: 'Profile not found' }); }
+  if (!req.files || !req.files.length) return res.status(400).json({ error: 'No files uploaded' });
+
+  const quota = await getQuotaStatus(req.session.userId, 'screenshot_upload', req.files.length);
+  if (!quota.allowed) {
+    cleanup();
+    return res.status(429).json({
+      error: `Daily screenshot upload limit reached (${quota.used}/${quota.limit} in the last ${quota.windowHours}h). Try again later.`,
+      ...quota
+    });
+  }
+
+  const trackerId = await ensureTracker(req.params.id, req.params.date);
+  const wellnessId = await ensureWellness(trackerId);
+  for (const file of req.files) {
+    const publicPath = `/uploads/tracker/${req.params.id}/${req.params.date}/${file.filename}`;
+    await query(
+      'INSERT INTO wellness_screenshots (id, wellness_id, file_path) VALUES (?, ?, ?)',
+      [crypto.randomUUID(), wellnessId, publicPath]
+    );
+  }
+  await recordUsage(req.session.userId, 'screenshot_upload', req.files.length);
+
+  res.status(201).json(await loadTracker(req.params.id, req.params.date));
+});
+
+router.delete('/:date/wellness/screenshots/:shotId', async (req, res) => {
+  if (!(await assertOwnsProfile(req.params.id, req.session.userId)))
+    return res.status(404).json({ error: 'Profile not found' });
+
+  const rows = await query(
+    `SELECT ws.id, ws.file_path FROM wellness_screenshots ws
+     JOIN tracker_wellness tw ON tw.id = ws.wellness_id
+     JOIN daily_trackers dt ON dt.id = tw.tracker_id
+     WHERE ws.id = ? AND dt.profile_id = ? AND dt.date = ?`,
+    [req.params.shotId, req.params.id, req.params.date]
+  );
+  if (rows[0]) {
+    const filePath = path.join(__dirname, '..', '..', '..', rows[0].file_path);
+    if (fs.existsSync(filePath)) { try { fs.unlinkSync(filePath); } catch { /* best-effort cleanup */ } }
+    await query('DELETE FROM wellness_screenshots WHERE id = ?', [req.params.shotId]);
   }
   res.json(await loadTracker(req.params.id, req.params.date));
 });

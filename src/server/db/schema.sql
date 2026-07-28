@@ -156,6 +156,34 @@ CREATE TABLE IF NOT EXISTS tracker_screenshots (
 -- synthesized legacy activity — see loadTracker()'s comment in tracker.js.
 ALTER TABLE tracker_screenshots ADD COLUMN activity_id VARCHAR(36) NULL;
 
+-- Wellness Track — one row per day (unique on tracker_id, unlike
+-- tracker_activities which allows several), for wearable-summary data (e.g.
+-- Samsung Galaxy Watch daily score) that isn't a logged activity. Its own
+-- screenshots table rather than reusing tracker_screenshots.activity_id,
+-- since that column means "belongs to this activity" and a wellness entry
+-- isn't one — see routes/tracker.js's loadTracker() for how it's attached
+-- to the day's response.
+CREATE TABLE IF NOT EXISTS tracker_wellness (
+  id          VARCHAR(36)  PRIMARY KEY,
+  tracker_id  VARCHAR(36)  NOT NULL,
+  name        VARCHAR(255) NULL,
+  description TEXT         NULL,
+  link        VARCHAR(500) NULL,
+  score       SMALLINT     NULL,
+  created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_wellness_tracker FOREIGN KEY (tracker_id) REFERENCES daily_trackers(id) ON DELETE CASCADE,
+  UNIQUE KEY uniq_wellness_tracker (tracker_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS wellness_screenshots (
+  id          VARCHAR(36)  PRIMARY KEY,
+  wellness_id VARCHAR(36)  NOT NULL,
+  file_path   VARCHAR(500) NOT NULL,
+  uploaded_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_wellness_screenshots FOREIGN KEY (wellness_id) REFERENCES tracker_wellness(id) ON DELETE CASCADE,
+  INDEX idx_wellness_screenshots (wellness_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Calorie & Food Planner — food items themselves are static content
 -- (src/server/lib/foods.js, referenced here only by string id), not a table.
 CREATE TABLE IF NOT EXISTS meal_plans (

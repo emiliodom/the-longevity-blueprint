@@ -1444,6 +1444,7 @@ html.light-mode code.text-sky-400 {
 /* One card per logged activity (dailyTracker.js) — a day can now hold
    several, each independently saved/removed. */
 .tracker-activity-card { border-left: 3px solid var(--c-accent); }
+.tracker-wellness-card { border-left: 3px solid #a78bfa; }
 .tracker-activity-actions {
   display: flex;
   gap:     .5rem;

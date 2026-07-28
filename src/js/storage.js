@@ -348,6 +348,34 @@ const Storage = {
     return res.json();
   },
 
+  // Wellness Track — a single per-day entry (wearable summaries, e.g.
+  // Samsung Galaxy Watch daily score), separate from the activities list
+  // above. saveWellness() upserts (creates the row on first save).
+  async saveWellness(profileId, date, data) {
+    const res = await fetch(`/api/profiles/${profileId}/tracker/${date}/wellness`, {
+      method:  'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Failed to save wellness entry');
+    return res.json();
+  },
+
+  async uploadWellnessScreenshots(profileId, date, files) {
+    const form = new FormData();
+    [...files].forEach(f => form.append('screenshots', f));
+    const res = await fetch(`/api/profiles/${profileId}/tracker/${date}/wellness/screenshots`, { method: 'POST', body: form });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Upload failed');
+    return data;
+  },
+
+  async deleteWellnessScreenshot(profileId, date, shotId) {
+    const res = await fetch(`/api/profiles/${profileId}/tracker/${date}/wellness/screenshots/${shotId}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed to delete screenshot');
+    return res.json();
+  },
+
   // ── Calorie & Food Planner ───────────────────────────────────────────────
 
   async getFoods(profileId) {
