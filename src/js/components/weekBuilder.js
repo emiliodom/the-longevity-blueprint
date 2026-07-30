@@ -75,6 +75,12 @@ app.component('WeekBuilder', {
       // reader users without this, so it's a first-class path, not an
       // afterthought.
       selectedTemplateId: null,
+      // Duration picker for templates with durationOptions (currently the
+      // "run" category — see templates.js). One field per placement path so
+      // tap-to-place and the Place modal don't clobber each other's choice
+      // if both happen to be open at once.
+      tapDurationMin:       null,
+      placementDurationMin: null,
       // Collapsed by default — the palette is ~24 items across 8 categories,
       // too much vertical space to show unconditionally on every visit.
       showPalette: false,
@@ -349,7 +355,9 @@ app.component('WeekBuilder', {
 
     // ── Tap-to-place (drag-and-drop's click/touch/keyboard equivalent) ──
     selectTemplate(t) {
-      this.selectedTemplateId = this.selectedTemplateId === t.id ? null : t.id;
+      const wasSelected = this.selectedTemplateId === t.id;
+      this.selectedTemplateId = wasSelected ? null : t.id;
+      this.tapDurationMin = (!wasSelected && t.durationOptions) ? t.defaultDurationMin : null;
     },
 
     async placeOnDay(dayIndex) {
@@ -357,9 +365,10 @@ app.component('WeekBuilder', {
       if (!template) return;
       await Storage.addBlock(this.profile.id, this.week.id, {
         dayOfWeek: dayIndex, blockType: template.category, title: template.label,
-        durationMin: template.defaultDurationMin, details: template.details
+        durationMin: template.durationOptions ? this.tapDurationMin : template.defaultDurationMin, details: template.details
       });
       this.selectedTemplateId = null;
+      this.tapDurationMin = null;
       await this.loadWeek();
     },
 
@@ -374,10 +383,12 @@ app.component('WeekBuilder', {
     openPlacement(t) {
       this.placementItem = t;
       this.placementDay  = null;
+      this.placementDurationMin = t.durationOptions ? t.defaultDurationMin : null;
     },
     closePlacement() {
       this.placementItem = null;
       this.placementDay  = null;
+      this.placementDurationMin = null;
     },
     // insertAtIndex is a position among that day's *current* blocks (0 =
     // first). The new block is created with a sortOrder guaranteed higher
@@ -393,7 +404,8 @@ app.component('WeekBuilder', {
       const safeSortOrder = before.length ? Math.max(...before.map(b => b.sortOrder)) + 1 : 0;
       await Storage.addBlock(this.profile.id, this.week.id, {
         dayOfWeek: dayIndex, blockType: template.category, title: template.label,
-        durationMin: template.defaultDurationMin, details: template.details, sortOrder: safeSortOrder
+        durationMin: template.durationOptions ? this.placementDurationMin : template.defaultDurationMin,
+        details: template.details, sortOrder: safeSortOrder
       });
       await this.loadWeek();
 
@@ -664,6 +676,18 @@ app.component('WeekBuilder', {
             </div>
           </template>
         </div>
+
+        <!-- Duration picker for tap-to-place: only appears once a template
+             with durationOptions (currently "run") is selected, and applies
+             to every "+ Add" tap below until deselected. A single dropdown
+             here rather than a select per day column (would repeat 7x in
+             Week view) or a wall of duration buttons in the palette itself. -->
+        <div v-if="showPalette && selectedTemplate && selectedTemplate.durationOptions" class="flex items-center gap-2 mt-3">
+          <label class="text-xs text-slate-400">Duration for {{ selectedTemplate.label }}:</label>
+          <select v-model.number="tapDurationMin" class="calc-input max-w-[8rem]">
+            <option v-for="m in selectedTemplate.durationOptions" :key="m" :value="m">{{ m }} min</option>
+          </select>
+        </div>
       </div>
 
       <!-- Mobile category modal: the drill-down for a tapped tile above —
@@ -813,6 +837,13 @@ app.component('WeekBuilder', {
             <h3 class="text-white font-semibold text-sm">📍 Place: {{ placementItem.icon }} {{ placementItem.label }}</h3>
             <button @click="closePlacement" class="text-slate-500 hover:text-red-400 text-sm flex-shrink-0">✕</button>
           </div>
+
+          <template v-if="placementItem.durationOptions">
+            <p class="text-xs text-slate-500 font-medium uppercase tracking-wider mb-2">Choose a duration</p>
+            <select v-model.number="placementDurationMin" class="calc-input mb-4 w-full">
+              <option v-for="m in placementItem.durationOptions" :key="m" :value="m">{{ m }} min</option>
+            </select>
+          </template>
 
           <p class="text-xs text-slate-500 font-medium uppercase tracking-wider mb-2">Choose a day</p>
           <div class="placement-day-grid">

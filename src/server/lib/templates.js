@@ -62,12 +62,26 @@ const GOAL_TEMPLATES = [
   { id: 'boxing_conditioning', goalType: 'boxing', icon: '🥊', title: 'Bag HIIT Conditioning Test', unit: 'minutes', description: 'A timed high-intensity bag+bodyweight circuit (e.g. round-based burpee/combo intervals) used as a conditioning benchmark in amateur gyms.' }
 ];
 
+// Run blocks let a user pick their own duration at placement time (15min up
+// to 3 hours, 5min steps — 34 values) rather than being stuck with a single
+// fixed default. Modeled as one shared options list attached to each run
+// template, rendered client-side as a single <select> in the Place modal —
+// NOT as 34 separate block templates, which would balloon the "run" palette
+// category from 4 tiles to 34+ and make the whole palette unusable. See
+// weekBuilder.js's openPlacement()/placeWithOrder() for how this is consumed.
+function minuteRange(startMin, endMin, stepMin) {
+  const options = [];
+  for (let m = startMin; m <= endMin; m += stepMin) options.push(m);
+  return options;
+}
+const RUN_DURATION_OPTIONS = minuteRange(15, 180, 5);
+
 const BLOCK_TEMPLATES = [
   // Running
-  { id: 'zone2_run',    category: 'run',      icon: '🏃',  label: 'Zone 2 Easy Run',              defaultDurationMin: 30,  details: { intensity: 'zone2' } },
-  { id: 'interval_run', category: 'run',      icon: '🏃‍💨', label: 'Interval / Speed Work',        defaultDurationMin: 35,  details: { intensity: 'interval' } },
-  { id: 'tempo_run',    category: 'run',      icon: '⏱️',  label: 'Tempo / Race-Pace Run',        defaultDurationMin: 30,  details: { intensity: 'tempo' } },
-  { id: 'long_run',     category: 'run',      icon: '🏃‍♂️', label: 'Long Run',                     defaultDurationMin: 60,  details: { intensity: 'zone2' } },
+  { id: 'zone2_run',    category: 'run',      icon: '🏃',  label: 'Zone 2 Easy Run',              defaultDurationMin: 30,  durationOptions: RUN_DURATION_OPTIONS, details: { intensity: 'zone2' } },
+  { id: 'interval_run', category: 'run',      icon: '🏃‍💨', label: 'Interval / Speed Work',        defaultDurationMin: 35,  durationOptions: RUN_DURATION_OPTIONS, details: { intensity: 'interval' } },
+  { id: 'tempo_run',    category: 'run',      icon: '⏱️',  label: 'Tempo / Race-Pace Run',        defaultDurationMin: 30,  durationOptions: RUN_DURATION_OPTIONS, details: { intensity: 'tempo' } },
+  { id: 'long_run',     category: 'run',      icon: '🏃‍♂️', label: 'Long Run',                     defaultDurationMin: 60,  durationOptions: RUN_DURATION_OPTIONS, details: { intensity: 'zone2' } },
 
   // Trail running (separate from road run — elevation/terrain is the load variable)
   { id: 'trail_run',      category: 'trail', icon: '⛰️', label: 'Trail Run (Rolling Terrain)', defaultDurationMin: 50,  details: { intensity: 'zone2' } },
