@@ -139,12 +139,18 @@ async function loadTracker(profileId, date) {
   return { id: tracker.id, date: tracker.date, activities, wellness };
 }
 
+// Same SELECT-then-INSERT race ensureTracker() above already fixed for
+// daily_trackers — two overlapping requests (e.g. Save Wellness plus an
+// immediate screenshot upload) could both see no row yet and collide on
+// tracker_wellness's uniq_wellness_tracker key. Same atomic-upsert fix.
 async function ensureWellness(trackerId) {
-  const existing = await query('SELECT id FROM tracker_wellness WHERE tracker_id = ?', [trackerId]);
-  if (existing[0]) return existing[0].id;
   const id = crypto.randomUUID();
-  await query('INSERT INTO tracker_wellness (id, tracker_id) VALUES (?, ?)', [id, trackerId]);
-  return id;
+  await query(
+    'INSERT INTO tracker_wellness (id, tracker_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE id = id',
+    [id, trackerId]
+  );
+  const existing = await query('SELECT id FROM tracker_wellness WHERE tracker_id = ?', [trackerId]);
+  return existing[0].id;
 }
 
 async function findOwnedActivity(profileId, date, activityId) {

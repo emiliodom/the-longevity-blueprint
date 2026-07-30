@@ -6,6 +6,20 @@
  * Only bp_active_profile is kept in localStorage (just the ID reference).
  */
 
+// Reads a failed response's {error} body when present, since the server
+// routes (e.g. routes/tracker.js) return specific messages ("Profile not
+// found", a real DB failure, etc.) that a hardcoded fallback string would
+// otherwise discard. Falls back to `fallback` if the body isn't JSON or has
+// no .error field (e.g. a non-Express-handled 500 with an HTML body).
+async function errorMessage(res, fallback) {
+  try {
+    const data = await res.json();
+    return data?.error || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 const Storage = {
 
   // ── Auth ──────────────────────────────────────────────────────────────────
@@ -307,13 +321,20 @@ const Storage = {
   // A day can hold several activities (see docs/ARCHITECTURE.md's Daily
   // Tracker section) — add/update/delete are scoped to one activity at a
   // time; every call returns the whole day's record (id, date, activities[]).
+  //
+  // On failure these surface the server's own {error} body (same as the
+  // screenshot upload calls below) rather than a hardcoded generic string —
+  // a 404 "Profile not found" or a real 500 message used to be silently
+  // discarded and replaced with e.g. "Failed to add activity" either way,
+  // which made a genuine server-side bug indistinguishable from a client
+  // fluke in the browser console.
   async addTrackerActivity(profileId, date, data) {
     const res = await fetch(`/api/profiles/${profileId}/tracker/${date}/activities`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify(data)
     });
-    if (!res.ok) throw new Error('Failed to add activity');
+    if (!res.ok) throw new Error(await errorMessage(res, 'Failed to add activity'));
     return res.json();
   },
 
@@ -323,13 +344,13 @@ const Storage = {
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify(data)
     });
-    if (!res.ok) throw new Error('Failed to save activity');
+    if (!res.ok) throw new Error(await errorMessage(res, 'Failed to save activity'));
     return res.json();
   },
 
   async deleteTrackerActivity(profileId, date, activityId) {
     const res = await fetch(`/api/profiles/${profileId}/tracker/${date}/activities/${activityId}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error('Failed to remove activity');
+    if (!res.ok) throw new Error(await errorMessage(res, 'Failed to remove activity'));
     return res.json();
   },
 
@@ -344,7 +365,7 @@ const Storage = {
 
   async deleteScreenshot(profileId, date, shotId) {
     const res = await fetch(`/api/profiles/${profileId}/tracker/${date}/screenshots/${shotId}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error('Failed to delete screenshot');
+    if (!res.ok) throw new Error(await errorMessage(res, 'Failed to delete screenshot'));
     return res.json();
   },
 
@@ -357,7 +378,7 @@ const Storage = {
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify(data)
     });
-    if (!res.ok) throw new Error('Failed to save wellness entry');
+    if (!res.ok) throw new Error(await errorMessage(res, 'Failed to save wellness entry'));
     return res.json();
   },
 
@@ -372,7 +393,7 @@ const Storage = {
 
   async deleteWellnessScreenshot(profileId, date, shotId) {
     const res = await fetch(`/api/profiles/${profileId}/tracker/${date}/wellness/screenshots/${shotId}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error('Failed to delete screenshot');
+    if (!res.ok) throw new Error(await errorMessage(res, 'Failed to delete screenshot'));
     return res.json();
   },
 
