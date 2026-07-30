@@ -78,12 +78,18 @@ async function findOwnedTracker(profileId, date) {
   return rows[0] || null;
 }
 
+// INSERT ... ON DUPLICATE KEY UPDATE (rather than SELECT-then-INSERT) so two
+// requests racing for the same (profile_id, date) — e.g. a double-clicked
+// "+ Add activity" button — don't both see "no row yet" and collide on the
+// uniq_profile_date key, which surfaced to users as "Failed to add activity".
 async function ensureTracker(profileId, date) {
-  const existing = await findOwnedTracker(profileId, date);
-  if (existing) return existing.id;
   const id = crypto.randomUUID();
-  await query('INSERT INTO daily_trackers (id, profile_id, date) VALUES (?, ?, ?)', [id, profileId, date]);
-  return id;
+  await query(
+    'INSERT INTO daily_trackers (id, profile_id, date) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE id = id',
+    [id, profileId, date]
+  );
+  const existing = await findOwnedTracker(profileId, date);
+  return existing.id;
 }
 
 async function loadTracker(profileId, date) {

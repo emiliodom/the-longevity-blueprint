@@ -49,6 +49,7 @@ app.component('DailyTracker', {
       wellness:      { id: null, name: '', description: '', link: '', score: null, screenshots: [] },
       plannedBlocks: [],
       loading:       false,
+      addingActivity: false, // guards "+ Add activity" against double-click firing two overlapping requests
       savingId:      null, // activity id currently being saved, for that one card's button state
       uploadingId:   null, // activity id currently uploading, for that one card's spinner
       savingWellness:    false,
@@ -117,8 +118,14 @@ app.component('DailyTracker', {
 
     // ── Activities: add ("+"), edit+save, remove ("−", warn+confirm) ────
     async addActivity() {
-      const data = await Storage.addTrackerActivity(this.profile.id, this.date, { name: '', stravaUrl: '', notes: '' });
-      this.activities = data.activities;
+      if (this.addingActivity) return;
+      this.addingActivity = true;
+      try {
+        const data = await Storage.addTrackerActivity(this.profile.id, this.date, { name: '', stravaUrl: '', notes: '' });
+        this.activities = data.activities;
+      } finally {
+        this.addingActivity = false;
+      }
     },
 
     async saveActivity(activity) {
@@ -257,7 +264,9 @@ app.component('DailyTracker', {
         </div>
       </div>
 
-      <button @click="addActivity" class="tracker-add-activity-btn">+ Add activity</button>
+      <button @click="addActivity" :disabled="addingActivity" class="tracker-add-activity-btn disabled:opacity-50">
+        {{ addingActivity ? 'Adding…' : '+ Add activity' }}
+      </button>
 
       <!-- Wellness Track: single per-day entry for wearable summaries (e.g.
            Samsung Galaxy Watch daily score) — not a list, unlike activities. -->
