@@ -46,7 +46,7 @@ npm start
 
 Then open **http://localhost:3000** in your browser.
 
-Deploying to Hostinger (or swapping in different MySQL credentials for production) — see [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md). For the full folder map and API surface, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+Deploying to Hostinger (or swapping in different MySQL credentials for production) — see [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md). For the full folder map and API surface, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). For a running history of what's changed, see [`CHANGELOG.md`](CHANGELOG.md).
 
 ---
 
